@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Datos sensibles
+.env
+*.env
+
+# Tests y CI
+tests/
+.github/
+htmlcov/
+.coverage
+coverage.xml
+
+# Archivos temporales
+*.log
+*.tmp
+tmp/
+/tmp/
+
+# Documentación
+docs/
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
+
+# Storage (se monta como volumen)
+storage/

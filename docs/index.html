@@ -1,0 +1,1825 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProcessOptimizer — Optimiza procesos con AI y Lean/Six Sigma</title>
+  <meta name="description" content="Analiza procesos desde texto o documentos. Detecta desperdicios, genera diagramas BPMN 2.0 y obtén KPIs cuantitativos en minutos con metodología Lean/Six Sigma." />
+  <meta property="og:title" content="ProcessOptimizer — AI + Lean/Six Sigma" />
+  <meta property="og:description" content="Analiza procesos desde texto o documentos. Detecta desperdicios, genera diagramas BPMN 2.0 y obtén KPIs cuantitativos en minutos." />
+  <meta property="og:type" content="website" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       DESIGN TOKENS
+    ============================================================ */
+    :root {
+      /* Brand Colors */
+      --color-bg: #0a0a0f;
+      --color-surface: #12121a;
+      --color-surface-2: #16161f;
+      --color-border: rgba(255, 255, 255, 0.06);
+      --color-border-hover: rgba(0, 212, 170, 0.3);
+
+      /* Text */
+      --color-text: #e2e8f0;
+      --color-text-muted: #94a3b8;
+      --color-text-faint: #4a5568;
+
+      /* Accents */
+      --color-primary: #00d4aa;
+      --color-primary-hover: #00bfa0;
+      --color-primary-glow: rgba(0, 212, 170, 0.15);
+      --color-secondary: #6366f1;
+      --color-secondary-glow: rgba(99, 102, 241, 0.15);
+
+      /* Gradient */
+      --gradient-brand: linear-gradient(135deg, #00d4aa 0%, #6366f1 100%);
+      --gradient-brand-text: linear-gradient(135deg, #00d4aa 0%, #818cf8 100%);
+      --gradient-hero-bg: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 70%),
+                          radial-gradient(ellipse 40% 40% at 80% 20%, rgba(0, 212, 170, 0.08) 0%, transparent 60%);
+
+      /* Type Scale */
+      --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+      --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+      --text-2xl: clamp(2rem, 1.2rem + 2.5vw, 3.5rem);
+      --text-3xl: clamp(2.5rem, 1rem + 4vw, 5rem);
+
+      /* Spacing */
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
+      --space-12: 3rem;
+      --space-16: 4rem;
+      --space-20: 5rem;
+      --space-24: 6rem;
+
+      /* Border radius */
+      --radius-sm: 0.375rem;
+      --radius-md: 0.5rem;
+      --radius-lg: 0.75rem;
+      --radius-xl: 12px;
+      --radius-btn: 8px;
+      --radius-full: 9999px;
+
+      /* Transitions */
+      --transition: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+      --transition-slow: 400ms cubic-bezier(0.16, 1, 0.3, 1);
+
+      /* Layout */
+      --content-narrow: 640px;
+      --content-default: 960px;
+      --content-wide: 1200px;
+
+      /* Fonts */
+      --font-body: 'General Sans', 'Inter', system-ui, sans-serif;
+      --font-display: 'Cabinet Grotesk', 'General Sans', system-ui, sans-serif;
+    }
+
+    /* ============================================================
+       BASE RESET
+    ============================================================ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      text-size-adjust: none;
+      scroll-behavior: smooth;
+      scroll-padding-top: 80px;
+    }
+
+    body {
+      min-height: 100dvh;
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      color: var(--color-text);
+      background-color: var(--color-bg);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    img, picture, video, canvas, svg { display: block; max-width: 100%; }
+    ul[role='list'], ol[role='list'] { list-style: none; }
+    input, button, textarea, select { font: inherit; color: inherit; }
+    h1, h2, h3, h4 { text-wrap: balance; line-height: 1.15; }
+    p, li { text-wrap: pretty; max-width: 72ch; }
+
+    a { color: inherit; text-decoration: none; }
+    button { cursor: pointer; background: none; border: none; }
+
+    ::selection {
+      background: rgba(0, 212, 170, 0.2);
+      color: var(--color-text);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 3px;
+      border-radius: var(--radius-sm);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ============================================================
+       ANIMATED BACKGROUND GRID
+    ============================================================ */
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .hero-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 70% at 50% 0%, black 30%, transparent 80%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 0%, black 30%, transparent 80%);
+    }
+
+    .hero-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 50% -10%, rgba(99, 102, 241, 0.18) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 35% at 85% 15%, rgba(0, 212, 170, 0.12) 0%, transparent 55%),
+        radial-gradient(ellipse 30% 25% at 15% 25%, rgba(99, 102, 241, 0.07) 0%, transparent 50%);
+      animation: bgPulse 8s ease-in-out infinite alternate;
+    }
+
+    @keyframes bgPulse {
+      0% { opacity: 0.7; }
+      100% { opacity: 1; }
+    }
+
+    /* Floating orbs */
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(60px);
+      pointer-events: none;
+      animation: orbFloat 12s ease-in-out infinite;
+    }
+    .orb-1 {
+      width: 400px; height: 400px;
+      background: rgba(99, 102, 241, 0.12);
+      top: -100px; left: -100px;
+      animation-delay: 0s;
+    }
+    .orb-2 {
+      width: 300px; height: 300px;
+      background: rgba(0, 212, 170, 0.1);
+      top: 20%; right: -80px;
+      animation-delay: -4s;
+    }
+    .orb-3 {
+      width: 250px; height: 250px;
+      background: rgba(99, 102, 241, 0.08);
+      bottom: 10%; left: 30%;
+      animation-delay: -8s;
+    }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translateY(0) scale(1); }
+      33% { transform: translateY(-30px) scale(1.05); }
+      66% { transform: translateY(20px) scale(0.95); }
+    }
+
+    /* ============================================================
+       TYPOGRAPHY HELPERS
+    ============================================================ */
+    .gradient-text {
+      background: var(--gradient-brand-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .section-label {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-primary);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .section-label::before {
+      content: '';
+      display: block;
+      width: 24px;
+      height: 2px;
+      background: var(--color-primary);
+      border-radius: var(--radius-full);
+    }
+
+    /* ============================================================
+       BUTTONS
+    ============================================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      border-radius: var(--radius-btn);
+      padding: var(--space-3) var(--space-6);
+      transition: all var(--transition);
+      white-space: nowrap;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary {
+      background: var(--gradient-brand);
+      color: #fff;
+      box-shadow: 0 0 24px rgba(0, 212, 170, 0.2);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 32px rgba(0, 212, 170, 0.35);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      backdrop-filter: blur(8px);
+    }
+
+    .btn-outline:hover {
+      border-color: rgba(0, 212, 170, 0.4);
+      color: var(--color-primary);
+      background: rgba(0, 212, 170, 0.05);
+    }
+
+    .btn-ghost {
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+      font-weight: 500;
+      padding: var(--space-2) var(--space-4);
+    }
+
+    .btn-ghost:hover {
+      color: var(--color-text);
+    }
+
+    .btn-sm {
+      padding: var(--space-2) var(--space-5);
+      font-size: var(--text-xs);
+    }
+
+    /* ============================================================
+       NAVIGATION
+    ============================================================ */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      padding: 0 var(--space-6);
+      transition: background var(--transition-slow), box-shadow var(--transition-slow), border-color var(--transition-slow);
+      border-bottom: 1px solid transparent;
+    }
+
+    .nav.scrolled {
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom-color: var(--color-border);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    .nav-inner {
+      max-width: var(--content-wide);
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-8);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex-shrink: 0;
+    }
+
+    .nav-logo-text {
+      font-family: var(--font-display);
+      font-size: 1.125rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--color-text);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: var(--text-sm);
+      font-weight: 500;
+      color: var(--color-text-muted);
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-md);
+      transition: color var(--transition), background var(--transition);
+    }
+
+    .nav-links a:hover {
+      color: var(--color-text);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    /* Hamburger */
+    .nav-hamburger {
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 5px;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      transition: background var(--transition);
+    }
+
+    .nav-hamburger:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .nav-hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--color-text-muted);
+      border-radius: var(--radius-full);
+      transition: all var(--transition);
+    }
+
+    .nav-hamburger.open span:nth-child(1) {
+      transform: translateY(7px) rotate(45deg);
+    }
+    .nav-hamburger.open span:nth-child(2) {
+      opacity: 0;
+      transform: scaleX(0);
+    }
+    .nav-hamburger.open span:nth-child(3) {
+      transform: translateY(-7px) rotate(-45deg);
+    }
+
+    /* Mobile menu */
+    .nav-mobile {
+      position: fixed;
+      top: 72px;
+      left: 0;
+      right: 0;
+      background: rgba(10, 10, 15, 0.97);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--color-border);
+      padding: var(--space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      z-index: 99;
+      transform: translateY(-100%);
+      opacity: 0;
+      transition: transform var(--transition-slow), opacity var(--transition-slow);
+      pointer-events: none;
+    }
+
+    .nav-mobile.open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .nav-mobile a {
+      font-size: var(--text-base);
+      font-weight: 500;
+      color: var(--color-text-muted);
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      transition: all var(--transition);
+    }
+
+    .nav-mobile a:hover {
+      color: var(--color-text);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .nav-mobile .btn {
+      width: 100%;
+      margin-top: var(--space-2);
+    }
+
+    /* ============================================================
+       HERO SECTION
+    ============================================================ */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 0 var(--space-6);
+      padding-top: 72px;
+      overflow: hidden;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: var(--content-wide);
+      width: 100%;
+      margin: 0 auto;
+      padding: clamp(var(--space-16), 10vw, var(--space-24)) 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--space-8);
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      background: rgba(0, 212, 170, 0.08);
+      border: 1px solid rgba(0, 212, 170, 0.2);
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-full);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--color-primary);
+      letter-spacing: 0.05em;
+    }
+
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.85); }
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: var(--text-3xl);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      max-width: 16ch;
+    }
+
+    .hero-sub {
+      font-size: var(--text-lg);
+      color: var(--color-text-muted);
+      max-width: 52ch;
+      line-height: 1.6;
+    }
+
+    .hero-ctas {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .hero-ctas .btn {
+      padding: var(--space-4) var(--space-8);
+      font-size: var(--text-base);
+    }
+
+    .hero-ctas .btn-outline {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .hero-scroll-hint {
+      position: absolute;
+      bottom: var(--space-8);
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+      color: var(--color-text-faint);
+      font-size: var(--text-xs);
+      animation: scrollBounce 2s ease-in-out infinite;
+    }
+
+    @keyframes scrollBounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(6px); }
+    }
+
+    /* Hero visual: floating card mockup */
+    .hero-visual {
+      width: 100%;
+      max-width: 780px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px var(--color-border);
+      position: relative;
+    }
+
+    .hero-visual::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(99,102,241,0.05) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .hero-terminal {
+      background: #0d0d15;
+      padding: var(--space-5) var(--space-6);
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+
+    .terminal-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .dot-red { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green { background: #28c840; }
+
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      font-size: var(--text-xs);
+      color: var(--color-text-faint);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .terminal-line {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.8125rem;
+      line-height: 1.7;
+      color: #a8b1c2;
+      padding: var(--space-1) 0;
+    }
+
+    .terminal-line .prompt { color: #00d4aa; }
+    .terminal-line .cmd { color: #e2e8f0; }
+    .terminal-line .comment { color: #4a5568; }
+    .terminal-line .output { color: #818cf8; }
+    .terminal-line .success { color: #00d4aa; }
+    .terminal-line .warning { color: #fbbf24; }
+
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      padding: var(--space-5) var(--space-6);
+      gap: 1px;
+      background: var(--color-border);
+    }
+
+    .metric-card {
+      background: var(--color-surface);
+      padding: var(--space-4) var(--space-5);
+      text-align: center;
+    }
+
+    .metric-value {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: 800;
+      background: var(--gradient-brand-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+    }
+
+    .metric-label {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+      margin-top: var(--space-1);
+    }
+
+    /* ============================================================
+       SECTIONS COMMON
+    ============================================================ */
+    .section {
+      padding: clamp(var(--space-16), 8vw, var(--space-24)) var(--space-6);
+    }
+
+    .section-inner {
+      max-width: var(--content-wide);
+      margin: 0 auto;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: clamp(var(--space-10), 5vw, var(--space-16));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-4);
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    .section-desc {
+      font-size: var(--text-base);
+      color: var(--color-text-muted);
+      max-width: 52ch;
+      text-align: center;
+    }
+
+    /* ============================================================
+       FEATURES SECTION
+    ============================================================ */
+    .features {
+      background: linear-gradient(180deg, var(--color-bg) 0%, rgba(18,18,26,0.5) 50%, var(--color-bg) 100%);
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-6);
+    }
+
+    .feature-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      position: relative;
+      overflow: hidden;
+      transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(0, 212, 170, 0.04) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+
+    .feature-card:hover {
+      border-color: var(--color-border-hover);
+      box-shadow: 0 8px 32px rgba(0, 212, 170, 0.08), 0 0 0 1px rgba(0, 212, 170, 0.1);
+      transform: translateY(-4px);
+    }
+
+    .feature-card:hover::before { opacity: 1; }
+
+    .feature-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-lg);
+      background: rgba(0, 212, 170, 0.08);
+      border: 1px solid rgba(0, 212, 170, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--color-primary);
+    }
+
+    .feature-title {
+      font-family: var(--font-display);
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--color-text);
+      letter-spacing: -0.02em;
+    }
+
+    .feature-desc {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      line-height: 1.65;
+    }
+
+    /* ============================================================
+       HOW IT WORKS
+    ============================================================ */
+    .how-it-works {
+      position: relative;
+    }
+
+    .how-it-works::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 40% at 50% 50%, rgba(99, 102, 241, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-6);
+      position: relative;
+    }
+
+    .steps-grid::before {
+      content: '';
+      position: absolute;
+      top: 36px;
+      left: calc(16.66% + 26px);
+      right: calc(16.66% + 26px);
+      height: 2px;
+      background: linear-gradient(90deg, rgba(0,212,170,0.3), rgba(99,102,241,0.3));
+      z-index: 0;
+    }
+
+    .step-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--space-5);
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-number-wrap {
+      position: relative;
+    }
+
+    .step-number {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--color-surface);
+      border: 2px solid rgba(0, 212, 170, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: 800;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      box-shadow: 0 0 0 4px rgba(0, 212, 170, 0.08), 0 0 24px rgba(0, 212, 170, 0.12);
+      position: relative;
+    }
+
+    .step-number::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 50%;
+      background: var(--gradient-brand);
+      z-index: -1;
+      opacity: 0.4;
+    }
+
+    .step-number-inner {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--color-surface);
+      border: 2px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: 800;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-number-gradient {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 2px;
+      background: var(--gradient-brand);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: destination-out;
+      mask-composite: exclude;
+    }
+
+    .step-icon-wrap {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--color-surface);
+      border: 2px solid rgba(0, 212, 170, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-primary);
+      box-shadow: 0 0 0 6px rgba(0, 212, 170, 0.05);
+      transition: box-shadow var(--transition), border-color var(--transition);
+    }
+
+    .step-card:hover .step-icon-wrap {
+      box-shadow: 0 0 0 8px rgba(0, 212, 170, 0.08), 0 0 24px rgba(0,212,170,0.15);
+      border-color: rgba(0, 212, 170, 0.5);
+    }
+
+    .step-content {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .step-num-label {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--color-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .step-title {
+      font-family: var(--font-display);
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--color-text);
+      letter-spacing: -0.02em;
+    }
+
+    .step-desc {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      line-height: 1.65;
+    }
+
+    /* ============================================================
+       PRICING
+    ============================================================ */
+    .pricing {
+      background: linear-gradient(180deg, var(--color-bg) 0%, rgba(14,14,22,0.8) 50%, var(--color-bg) 100%);
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-6);
+      max-width: 820px;
+      margin: 0 auto;
+    }
+
+    .pricing-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-6);
+      position: relative;
+      overflow: hidden;
+      transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+
+    .pricing-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0, 212, 170, 0.2);
+      box-shadow: 0 8px 40px rgba(0, 212, 170, 0.08);
+    }
+
+    .pricing-card.popular {
+      border-color: rgba(0, 212, 170, 0.35);
+      box-shadow: 0 0 0 1px rgba(0, 212, 170, 0.1), 0 8px 40px rgba(0, 212, 170, 0.1);
+      background: linear-gradient(160deg, rgba(0, 212, 170, 0.05) 0%, var(--color-surface) 40%);
+    }
+
+    .pricing-card.popular::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--gradient-brand);
+    }
+
+    .popular-badge {
+      position: absolute;
+      top: var(--space-5);
+      right: var(--space-5);
+      background: var(--gradient-brand);
+      color: #fff;
+      font-size: var(--text-xs);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: var(--space-1) var(--space-3);
+      border-radius: var(--radius-full);
+    }
+
+    .pricing-header {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .pricing-name {
+      font-family: var(--font-display);
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--color-text);
+    }
+
+    .pricing-price {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-1);
+    }
+
+    .price-amount {
+      font-family: var(--font-display);
+      font-size: var(--text-3xl);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      background: var(--gradient-brand-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .price-currency {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--color-text-muted);
+    }
+
+    .price-period {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+    }
+
+    .pricing-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      flex: 1;
+    }
+
+    .pricing-features li {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      max-width: none;
+    }
+
+    .pricing-features .check-icon {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(0, 212, 170, 0.1);
+      border: 1px solid rgba(0, 212, 170, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-primary);
+    }
+
+    .pricing-cta {
+      width: 100%;
+      justify-content: center;
+      padding: var(--space-4);
+    }
+
+    /* ============================================================
+       FOOTER
+    ============================================================ */
+    .footer {
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-border);
+      padding: var(--space-12) var(--space-6);
+    }
+
+    .footer-inner {
+      max-width: var(--content-wide);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--space-6);
+    }
+
+    .footer-brand {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .footer-logo-text {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--color-text-muted);
+    }
+
+    .footer-copy {
+      font-size: var(--text-xs);
+      color: var(--color-text-faint);
+    }
+
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: var(--space-6);
+    }
+
+    .footer-links a {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      transition: color var(--transition);
+    }
+
+    .footer-links a:hover {
+      color: var(--color-text);
+    }
+
+    /* ============================================================
+       SCROLL ANIMATIONS
+    ============================================================ */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .fade-up-delay-1 { transition-delay: 0.1s; }
+    .fade-up-delay-2 { transition-delay: 0.2s; }
+    .fade-up-delay-3 { transition-delay: 0.3s; }
+    .fade-up-delay-4 { transition-delay: 0.4s; }
+    .fade-up-delay-5 { transition-delay: 0.5s; }
+
+    /* ============================================================
+       DIVIDER ORNAMENT
+    ============================================================ */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--color-border), transparent);
+      max-width: var(--content-wide);
+      margin: 0 auto;
+    }
+
+    /* ============================================================
+       TRUST BAR
+    ============================================================ */
+    .trust-bar {
+      padding: var(--space-8) var(--space-6);
+      border-top: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .trust-bar-inner {
+      max-width: var(--content-wide);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-10);
+      flex-wrap: wrap;
+    }
+
+    .trust-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-1);
+    }
+
+    .trust-value {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: 800;
+      background: var(--gradient-brand-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .trust-label {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+      text-align: center;
+    }
+
+    .trust-sep {
+      width: 1px;
+      height: 36px;
+      background: var(--color-border);
+    }
+
+    /* ============================================================
+       RESPONSIVE
+    ============================================================ */
+    @media (max-width: 768px) {
+      .nav-links, .nav-right .btn { display: none; }
+      .nav-hamburger { display: flex; }
+
+      .hero h1 { font-size: clamp(2rem, 8vw, 3rem); }
+      .hero-sub { font-size: var(--text-base); }
+
+      .hero-metrics { grid-template-columns: repeat(3, 1fr); }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+      }
+
+      .steps-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-8);
+      }
+
+      .steps-grid::before { display: none; }
+
+      .pricing-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .hero-ctas { flex-direction: column; width: 100%; }
+      .hero-ctas .btn { width: 100%; }
+
+      .trust-sep { display: none; }
+      .trust-bar-inner { gap: var(--space-6); }
+    }
+
+    @media (max-width: 480px) {
+      .hero-metrics { grid-template-columns: 1fr; }
+      .metric-card { padding: var(--space-3); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       NAVIGATION
+  ============================================================ -->
+  <nav class="nav" id="navbar" role="navigation" aria-label="Navegación principal">
+    <div class="nav-inner">
+      <!-- Logo -->
+      <a href="#" class="nav-logo" aria-label="ProcessOptimizer - Inicio">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+          <!-- Outer ring -->
+          <circle cx="18" cy="18" r="16" stroke="url(#logoGrad)" stroke-width="1.5" stroke-dasharray="4 2" opacity="0.4"/>
+          <!-- Hexagonal process nodes -->
+          <path d="M18 5 L26.66 9.5 L26.66 18.5 L18 23 L9.34 18.5 L9.34 9.5 Z" stroke="url(#logoGrad)" stroke-width="1.5" fill="none"/>
+          <!-- Center diamond -->
+          <path d="M18 12 L22 18 L18 24 L14 18 Z" fill="url(#logoGrad)" opacity="0.9"/>
+          <!-- Connecting arrows -->
+          <circle cx="18" cy="8" r="2" fill="url(#logoGrad)" opacity="0.7"/>
+          <circle cx="27" cy="13.5" r="2" fill="url(#logoGrad2)" opacity="0.7"/>
+          <circle cx="27" cy="22.5" r="2" fill="url(#logoGrad2)" opacity="0.5"/>
+          <defs>
+            <linearGradient id="logoGrad" x1="5" y1="5" x2="31" y2="31" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#00d4aa"/>
+              <stop offset="1" stop-color="#6366f1"/>
+            </linearGradient>
+            <linearGradient id="logoGrad2" x1="5" y1="5" x2="31" y2="31" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6366f1"/>
+              <stop offset="1" stop-color="#00d4aa"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="nav-logo-text">ProcessOptimizer</span>
+      </a>
+
+      <!-- Desktop links -->
+      <ul class="nav-links" role="list">
+        <li><a href="#caracteristicas">Características</a></li>
+        <li><a href="#como-funciona">Cómo funciona</a></li>
+        <li><a href="#precios">Precios</a></li>
+      </ul>
+
+      <!-- Desktop CTA + hamburger -->
+      <div class="nav-right">
+        <a href="app.html" class="btn btn-primary btn-sm">Empezar gratis</a>
+        <button class="nav-hamburger" id="hamburger" aria-label="Abrir menú" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Mobile menu -->
+  <div class="nav-mobile" id="mobileMenu" role="dialog" aria-label="Menú móvil">
+    <a href="#caracteristicas" class="mobile-link">Características</a>
+    <a href="#como-funciona" class="mobile-link">Cómo funciona</a>
+    <a href="#precios" class="mobile-link">Precios</a>
+    <a href="app.html" class="btn btn-primary">Empezar gratis</a>
+  </div>
+
+  <!-- ============================================================
+       HERO
+  ============================================================ -->
+  <section class="hero" aria-labelledby="hero-headline">
+    <div class="hero-bg" aria-hidden="true">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+    </div>
+
+    <div class="hero-content">
+      <!-- Badge -->
+      <div class="hero-badge fade-up">
+        <span class="hero-badge-dot" aria-hidden="true"></span>
+        AI Agent · Lean · Six Sigma · Kaizen · BPMN 2.0
+      </div>
+
+      <!-- Headline -->
+      <h1 id="hero-headline" class="fade-up fade-up-delay-1">
+        Optimiza los procesos de tu empresa con
+        <span class="gradient-text"> AI y metodología Lean/Six Sigma</span>
+      </h1>
+
+      <!-- Sub -->
+      <p class="hero-sub fade-up fade-up-delay-2">
+        Analiza procesos desde texto o documentos. Detecta desperdicios, genera diagramas BPMN y obtén KPIs cuantitativos en minutos.
+      </p>
+
+      <!-- CTAs -->
+      <div class="hero-ctas fade-up fade-up-delay-3">
+        <a href="app.html" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          Analizar mi primer proceso gratis
+        </a>
+        <a href="#como-funciona" class="btn btn-outline">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
+          </svg>
+          Ver cómo funciona
+        </a>
+      </div>
+
+      <!-- Terminal mockup -->
+      <div class="hero-visual fade-up fade-up-delay-4" role="img" aria-label="Interfaz del agente procesando un flujo de trabajo">
+        <div class="hero-terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dot dot-red"></div>
+            <div class="terminal-dot dot-yellow"></div>
+            <div class="terminal-dot dot-green"></div>
+            <span class="terminal-title">process-optimizer-agent · análisis en progreso</span>
+          </div>
+          <div class="terminal-line"><span class="prompt">→</span> <span class="cmd">Analizando proceso: "Onboarding de clientes B2B"</span></div>
+          <div class="terminal-line"><span class="comment">// Extrayendo pasos del AS-IS...</span></div>
+          <div class="terminal-line"><span class="output">✦ 12 actividades identificadas · 3 decisiones · 2 roles</span></div>
+          <div class="terminal-line"><span class="comment">// Aplicando metodología Lean/Six Sigma...</span></div>
+          <div class="terminal-line"><span class="warning">⚠ Muda detectada: espera (×3), retrabajo (×2), movimiento innecesario (×1)</span></div>
+          <div class="terminal-line"><span class="comment">// Generando propuesta TO-BE optimizada...</span></div>
+          <div class="terminal-line"><span class="success">✓ BPMN 2.0 generado · KPIs calculados · Reporte listo</span></div>
+        </div>
+        <div class="hero-metrics" role="list" aria-label="KPIs de optimización">
+          <div class="metric-card" role="listitem">
+            <div class="metric-value">−42%</div>
+            <div class="metric-label">Tiempo de ciclo</div>
+          </div>
+          <div class="metric-card" role="listitem">
+            <div class="metric-value">−31%</div>
+            <div class="metric-label">Costo operativo</div>
+          </div>
+          <div class="metric-card" role="listitem">
+            <div class="metric-value">94</div>
+            <div class="metric-label">Score de optimización</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scroll hint -->
+    <div class="hero-scroll-hint" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14M5 12l7 7 7-7"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       TRUST BAR
+  ============================================================ -->
+  <div class="trust-bar" aria-label="Estadísticas del producto">
+    <div class="trust-bar-inner">
+      <div class="trust-item fade-up">
+        <span class="trust-value">+8 Mudas</span>
+        <span class="trust-label">Desperdicios Lean detectados</span>
+      </div>
+      <div class="trust-sep" aria-hidden="true"></div>
+      <div class="trust-item fade-up fade-up-delay-1">
+        <span class="trust-value">BPMN 2.0</span>
+        <span class="trust-label">Estándar internacional</span>
+      </div>
+      <div class="trust-sep" aria-hidden="true"></div>
+      <div class="trust-item fade-up fade-up-delay-2">
+        <span class="trust-value">&lt; 3 min</span>
+        <span class="trust-label">Tiempo de análisis</span>
+      </div>
+      <div class="trust-sep" aria-hidden="true"></div>
+      <div class="trust-item fade-up fade-up-delay-3">
+        <span class="trust-value">FastAPI</span>
+        <span class="trust-label">Backend escalable en Docker</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       FEATURES
+  ============================================================ -->
+  <section class="section features" id="caracteristicas" aria-labelledby="features-title">
+    <div class="section-inner">
+      <header class="section-header">
+        <span class="section-label fade-up">Características</span>
+        <h2 class="section-title fade-up fade-up-delay-1" id="features-title">
+          Todo lo que necesitas para<br>
+          <span class="gradient-text">optimizar tus procesos</span>
+        </h2>
+        <p class="section-desc fade-up fade-up-delay-2">
+          Un agente de IA especializado en mejora continua que combina tecnología de punta con metodologías probadas.
+        </p>
+      </header>
+
+      <div class="features-grid" role="list">
+        <!-- Card 1 -->
+        <article class="feature-card fade-up fade-up-delay-1" role="listitem">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Análisis desde texto o documentos</h3>
+          <p class="feature-desc">
+            Describe tu proceso en lenguaje natural o sube un PDF/Excel. Nuestra AI extrae y analiza cada paso automáticamente.
+          </p>
+        </article>
+
+        <!-- Card 2 -->
+        <article class="feature-card fade-up fade-up-delay-2" role="listitem">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="6"/>
+              <circle cx="12" cy="12" r="2"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Metodología Lean, Six Sigma y Kaizen</h3>
+          <p class="feature-desc">
+            Detecta las 8 mudas de desperdicio, cuellos de botella y oportunidades de mejora con metodologías probadas.
+          </p>
+        </article>
+
+        <!-- Card 3 -->
+        <article class="feature-card fade-up fade-up-delay-3" role="listitem">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+              <path d="M2 20h20"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Diagrama BPMN + KPIs incluidos</h3>
+          <p class="feature-desc">
+            Recibe un diagrama BPMN 2.0 profesional y KPIs cuantitativos: tiempo ahorrado, costo reducido y score de optimización.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider" role="separator" aria-hidden="true"></div>
+
+  <!-- ============================================================
+       HOW IT WORKS
+  ============================================================ -->
+  <section class="section how-it-works" id="como-funciona" aria-labelledby="how-title">
+    <div class="section-inner">
+      <header class="section-header">
+        <span class="section-label fade-up">Cómo funciona</span>
+        <h2 class="section-title fade-up fade-up-delay-1" id="how-title">
+          De proceso caótico a<br>
+          <span class="gradient-text">diagrama optimizado en minutos</span>
+        </h2>
+      </header>
+
+      <div class="steps-grid" role="list">
+        <!-- Step 1 -->
+        <div class="step-card fade-up fade-up-delay-1" role="listitem">
+          <div class="step-icon-wrap" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="step-content">
+            <span class="step-num-label">Paso 01</span>
+            <h3 class="step-title">Sube tu proceso</h3>
+            <p class="step-desc">Describe en texto o sube un documento PDF/Excel con tu proceso actual.</p>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-card fade-up fade-up-delay-2" role="listitem">
+          <div class="step-icon-wrap" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div class="step-content">
+            <span class="step-num-label">Paso 02</span>
+            <h3 class="step-title">AI analiza con Lean/Six Sigma</h3>
+            <p class="step-desc">Nuestro agente detecta desperdicios y genera propuestas de mejora con metodologías certificadas.</p>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-card fade-up fade-up-delay-3" role="listitem">
+          <div class="step-icon-wrap" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <div class="step-content">
+            <span class="step-num-label">Paso 03</span>
+            <h3 class="step-title">Recibe resultados</h3>
+            <p class="step-desc">Diagrama BPMN 2.0, KPIs cuantitativos y plan de acción listo para implementar de inmediato.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider" role="separator" aria-hidden="true"></div>
+
+  <!-- ============================================================
+       PRICING
+  ============================================================ -->
+  <section class="section pricing" id="precios" aria-labelledby="pricing-title">
+    <div class="section-inner">
+      <header class="section-header">
+        <span class="section-label fade-up">Precios</span>
+        <h2 class="section-title fade-up fade-up-delay-1" id="pricing-title">
+          Planes pensados para<br>
+          <span class="gradient-text">cada necesidad</span>
+        </h2>
+        <p class="section-desc fade-up fade-up-delay-2">
+          Sin suscripciones sorpresa. Paga solo por lo que usas, o accede a análisis ilimitados con nuestro plan mensual.
+        </p>
+      </header>
+
+      <div class="pricing-grid">
+        <!-- Plan Individual -->
+        <article class="pricing-card fade-up fade-up-delay-1" aria-labelledby="plan-individual-name">
+          <div class="pricing-header">
+            <h3 class="pricing-name" id="plan-individual-name">Análisis Individual</h3>
+            <div class="pricing-price" aria-label="199 dólares por análisis">
+              <span class="price-currency">$</span>
+              <span class="price-amount">199</span>
+              <span class="price-period">&nbsp;USD / análisis</span>
+            </div>
+          </div>
+
+          <ul class="pricing-features" role="list" aria-label="Características incluidas">
+            <li>
+              <span class="check-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="2 6 5 9 10 3"/>
+                </svg>
+              </span>
+              1 análisis completo de proceso
+            </li>
+            <li>
+              <span class="check-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="2 6 5 9 10 3"/>
+                </svg>
+              </span>
+              Diagrama BPMN 2.0 exportable
+            </li>
+            <li>
+              <span class="check-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="2 6 5 9 10 3"/>
+                </svg>
+              </span>
+              KPIs cuantitativos detallados
+            </li>
+            <li>
+              <span class="check-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="2 6 5 9 10 3"/>
+                </svg>
+              </span>
+              Reporte descargable en PDF
+            </li>
+          </ul>
+
+          <a href="app.html" class="btn btn-outline pricing-cta">Comprar análisis</a>
+        </article>
+
+        <!-- Plan Mensual (POPULAR) -->
+        <article class="pricing-card popular fade-up fade-up-delay-2" aria-labelledby="plan-mensual-name">
+          <span class="popular-badge" aria-label="Plan más popular">POPULAR</span>
+
+          <div class="pricing-header">
+            <h3 class="pricing-name" id="plan-mensual-name">Mensual</h3>
+            <div class="pricing-price" aria-label="149 dólares por mes">
+              <span class="price-currency">$</span>
+              <span class="price-amount">149</span>
+              <span class="price-period">&nbsp;USD / mes</span>
+            </div>
+          </div>
+
+          <ul class="pricing-features" role="list" aria-label="Características incluidas">
+            <li>
+              <span class="check-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="2 6 5 9 10 3"/>
+                </svg>
+              </span>
+              Análisis ilimitados de procesos
+            </li>
+            <li>
+              <span class="check-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="2 6 5 9 10 3"/>
+                </svg>
+              </span>
+              Diagrama BPMN 2.0 exportable
+            </li>
+            <li>
+              <span class="check-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="2 6 5 9 10 3"/>
+                </svg>
+              </span>
+              KPIs cuantitativos detallados
+            </li>
+            <li>
+              <span class="check-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="2 6 5 9 10 3"/>
+                </svg>
+              </span>
+              Historial completo de análisis
+            </li>
+            <li>
+              <span class="check-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="2 6 5 9 10 3"/>
+                </svg>
+              </span>
+              Soporte prioritario
+            </li>
+          </ul>
+
+          <a href="app.html" class="btn btn-primary pricing-cta">Empezar plan mensual</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       FOOTER
+  ============================================================ -->
+  <footer class="footer" role="contentinfo">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a href="#" class="footer-logo" aria-label="ProcessOptimizer - Inicio">
+          <svg width="28" height="28" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <circle cx="18" cy="18" r="16" stroke="url(#footerGrad)" stroke-width="1.5" stroke-dasharray="4 2" opacity="0.4"/>
+            <path d="M18 5 L26.66 9.5 L26.66 18.5 L18 23 L9.34 18.5 L9.34 9.5 Z" stroke="url(#footerGrad)" stroke-width="1.5" fill="none"/>
+            <path d="M18 12 L22 18 L18 24 L14 18 Z" fill="url(#footerGrad)" opacity="0.9"/>
+            <circle cx="18" cy="8" r="2" fill="url(#footerGrad)" opacity="0.7"/>
+            <circle cx="27" cy="13.5" r="2" fill="url(#footerGrad)" opacity="0.5"/>
+            <defs>
+              <linearGradient id="footerGrad" x1="5" y1="5" x2="31" y2="31" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#00d4aa"/>
+                <stop offset="1" stop-color="#6366f1"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <span class="footer-logo-text">ProcessOptimizer</span>
+        </a>
+        <p class="footer-copy">© 2026 ProcessOptimizer. Todos los derechos reservados.</p>
+      </div>
+
+      <nav class="footer-links" aria-label="Pie de página">
+        <a href="#">Términos</a>
+        <a href="#">Privacidad</a>
+        <a href="mailto:contacto@processoptimizer.ai">Contacto</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!-- ============================================================
+       JAVASCRIPT
+  ============================================================ -->
+  <script>
+    // ── Navbar scroll behavior
+    const navbar = document.getElementById('navbar');
+    let lastScroll = 0;
+    window.addEventListener('scroll', () => {
+      const currentScroll = window.scrollY;
+      if (currentScroll > 20) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+      lastScroll = currentScroll;
+    }, { passive: true });
+
+    // ── Hamburger menu
+    const hamburger = document.getElementById('hamburger');
+    const mobileMenu = document.getElementById('mobileMenu');
+    let menuOpen = false;
+
+    hamburger.addEventListener('click', () => {
+      menuOpen = !menuOpen;
+      hamburger.classList.toggle('open', menuOpen);
+      mobileMenu.classList.toggle('open', menuOpen);
+      hamburger.setAttribute('aria-expanded', menuOpen);
+    });
+
+    // Close mobile menu on link click
+    mobileMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        menuOpen = false;
+        hamburger.classList.remove('open');
+        mobileMenu.classList.remove('open');
+        hamburger.setAttribute('aria-expanded', false);
+      });
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (menuOpen && !mobileMenu.contains(e.target) && !hamburger.contains(e.target)) {
+        menuOpen = false;
+        hamburger.classList.remove('open');
+        mobileMenu.classList.remove('open');
+        hamburger.setAttribute('aria-expanded', false);
+      }
+    });
+
+    // ── Intersection Observer for fade-up animations
+    const fadeElements = document.querySelectorAll('.fade-up');
+
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, {
+        threshold: 0.1,
+        rootMargin: '0px 0px -40px 0px'
+      });
+
+      fadeElements.forEach(el => observer.observe(el));
+    } else {
+      // Fallback: show all immediately
+      fadeElements.forEach(el => el.classList.add('visible'));
+    }
+
+    // ── Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', (e) => {
+        const href = anchor.getAttribute('href');
+        if (href === '#') return;
+        const target = document.querySelector(href);
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    // ── Animate the terminal lines with a typewriter reveal
+    const terminalLines = document.querySelectorAll('.terminal-line');
+    let lineIdx = 0;
+
+    function revealNextLine() {
+      if (lineIdx < terminalLines.length) {
+        const line = terminalLines[lineIdx];
+        line.style.opacity = '0';
+        line.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => { line.style.opacity = '1'; }, 10);
+        lineIdx++;
+        setTimeout(revealNextLine, 420);
+      }
+    }
+
+    // Start terminal animation after a short delay
+    terminalLines.forEach(l => { l.style.opacity = '0'; });
+    setTimeout(revealNextLine, 800);
+  </script>
+</body>
+</html>

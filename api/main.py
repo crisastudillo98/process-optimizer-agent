@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from agent.orchestrator import optimizer_graph, build_graph
 from agent.document_loader import load_document
+from agent.chat_agent import router as chat_router
 from models.schemas import (
     AgentState,
     KPIReportV2,
@@ -45,6 +46,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Chat contextual router
+app.include_router(chat_router)
 
 # ─────────────────────────────────────────────
 # STORE EN MEMORIA (reemplazar por Redis en producción)

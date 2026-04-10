@@ -701,6 +701,59 @@
     }
 
     /* ============================================================
+       FAQ SECTION
+    ============================================================ */
+    .faq-intro {
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+      margin-bottom: var(--space-6);
+      line-height: 1.6;
+    }
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+    .faq-item {
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .faq-question {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-6);
+      font-weight: 600;
+      font-size: var(--text-sm);
+      color: var(--color-text);
+      background: var(--color-surface-3);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .faq-q-icon {
+      flex-shrink: 0;
+      color: var(--color-primary);
+      margin-top: 2px;
+    }
+    .faq-answer {
+      padding: var(--space-4) var(--space-6);
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      line-height: 1.65;
+    }
+    .faq-answer p { margin: 0 0 var(--space-2); }
+    .faq-answer p:last-child { margin-bottom: 0; }
+    .faq-answer strong { color: var(--color-primary); }
+    .faq-answer ul {
+      margin: var(--space-2) 0;
+      padding-left: var(--space-6);
+    }
+    .faq-answer li {
+      margin-bottom: var(--space-1);
+    }
+
+    /* ============================================================
        FOOTER
     ============================================================ */
     .report-footer {
@@ -930,6 +983,14 @@
         font-size: 8pt !important;
       }
       .report-footer a { color: #00917a !important; }
+
+      /* FAQ print styles */
+      .faq-intro { color: #6b7280 !important; }
+      .faq-item { background: #f9fafb !important; border: 1px solid #e5e7eb !important; }
+      .faq-question { background: #f3f4f6 !important; color: #1a1a2e !important; border-bottom: 1px solid #e5e7eb !important; }
+      .faq-q-icon { color: #00917a !important; }
+      .faq-answer { color: #4b5563 !important; }
+      .faq-answer strong { color: #00917a !important; }
 
       .comparison-grid { gap: 16px !important; }
       .summary-grid { gap: 16px !important; }
@@ -1282,6 +1343,90 @@
             Inicio → Solicitud Digital → Validación Automática → [Decisión] → Aprobación → Orden de Compra → Fin
           </div>
           <div class="bpmn-fallback-note">El visualizador BPMN requiere conexión a internet para renderizar. Al imprimir, el diagrama se incluye si fue cargado.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         SECCIÓN: PREGUNTAS FRECUENTES RESPONDIDAS
+    ============================================================ -->
+    <section class="section" id="section-faq">
+      <div class="section-header">
+        <div class="section-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M7 9h6M7 12h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h2 class="section-title">Preguntas Frecuentes Respondidas</h2>
+      </div>
+
+      <p class="faq-intro" id="faq-intro">
+        Respuestas generadas por el agente de IA durante la sesión de análisis del proceso.
+      </p>
+
+      <div id="faq-list" class="faq-list">
+        <!-- Dynamic FAQ items injected via JS -->
+
+        <!-- Static demo FAQ items (shown when no chat history) -->
+        <div class="faq-item">
+          <div class="faq-question">
+            <svg class="faq-q-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M6.5 6.5C6.5 5.67 7.17 5 8 5s1.5.67 1.5 1.5c0 .83-.75 1-1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              <circle cx="8" cy="11" r="0.6" fill="currentColor"/>
+            </svg>
+            ¿Cuánto tiempo tomaría implementar las mejoras propuestas?
+          </div>
+          <div class="faq-answer">
+            <p><strong>Tiempo estimado: 8-12 semanas.</strong> La implementación se divide en fases:</p>
+            <ul>
+              <li><strong>Fase 1 (semanas 1-3):</strong> Digitalización del formulario único y validación automática</li>
+              <li><strong>Fase 2 (semanas 4-6):</strong> Flujo de aprobación unificada con reglas de negocio</li>
+              <li><strong>Fase 3 (semanas 7-9):</strong> Integración con ERP para órdenes automáticas</li>
+              <li><strong>Fase 4 (semanas 10-12):</strong> Dashboard de tracking, pruebas UAT y capacitación</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <svg class="faq-q-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M6.5 6.5C6.5 5.67 7.17 5 8 5s1.5.67 1.5 1.5c0 .83-.75 1-1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              <circle cx="8" cy="11" r="0.6" fill="currentColor"/>
+            </svg>
+            ¿Qué herramienta se recomienda para automatizar el paso más crítico?
+          </div>
+          <div class="faq-answer">
+            <p>El paso más crítico es la <strong>validación y aprobación</strong>. Herramientas recomendadas:</p>
+            <ul>
+              <li><strong>Microsoft Power Automate</strong> — Ideal con Microsoft 365. Flujos de aprobación dinámicos, ~$15 USD/usuario/mes.</li>
+              <li><strong>Kissflow</strong> — Plataforma no-code especializada en BPM para procesos de compras.</li>
+              <li><strong>SAP Ariba</strong> — Integración natural si ya usan SAP para procurement end-to-end.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <svg class="faq-q-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M6.5 6.5C6.5 5.67 7.17 5 8 5s1.5.67 1.5 1.5c0 .83-.75 1-1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              <circle cx="8" cy="11" r="0.6" fill="currentColor"/>
+            </svg>
+            ¿Cuál es el retorno de inversión estimado?
+          </div>
+          <div class="faq-answer">
+            <p>Basado en los KPIs del análisis:</p>
+            <ul>
+              <li><strong>Reducción de tiempo de ciclo:</strong> De 5-7 días a 1-2 días (ahorro de 68%)</li>
+              <li><strong>Reducción de costos operativos:</strong> 25% por eliminación de re-trabajo</li>
+              <li><strong>Ahorro estimado anual:</strong> ~$30,000 USD</li>
+              <li><strong>Inversión estimada:</strong> $15,000-25,000 USD</li>
+              <li><strong>Payback period:</strong> 6-10 meses</li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>

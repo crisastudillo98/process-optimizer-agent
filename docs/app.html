@@ -740,6 +740,225 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--very-muted); border-radius: 100px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    /* =============================================
+       CHAT WIDGET
+    ============================================= */
+    .chat-container {
+      background: var(--surface);
+      border: 1px solid var(--border-med);
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, rgba(0,212,170,0.08) 0%, rgba(99,102,241,0.08) 100%);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .chat-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .chat-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .chat-header-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .chat-header-title {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+    .chat-header-sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .chat-toggle-btn {
+      color: var(--muted);
+      padding: 6px;
+      border-radius: 6px;
+      transition: background var(--transition), color var(--transition), transform var(--transition);
+    }
+    .chat-toggle-btn:hover {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+    }
+    .chat-toggle-btn.collapsed svg {
+      transform: rotate(-180deg);
+    }
+
+    /* Suggestions */
+    .chat-suggestions {
+      padding: 14px 20px 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .chip {
+      font-size: 0.78rem;
+      padding: 7px 14px;
+      border-radius: 20px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-med);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all var(--transition);
+      text-align: left;
+      line-height: 1.35;
+    }
+    .chip:hover {
+      background: var(--primary-dim);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* Messages Area */
+    .chat-messages {
+      min-height: 180px;
+      max-height: 380px;
+      overflow-y: auto;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .chat-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 160px;
+      color: var(--very-muted);
+      font-size: 0.85rem;
+    }
+
+    /* Bubbles */
+    .chat-bubble {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      animation: fadeIn 0.25s ease;
+    }
+    .chat-bubble.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, var(--primary), #00b89c);
+      color: #0a0a0f;
+      border-bottom-right-radius: 4px;
+      font-weight: 500;
+    }
+    .chat-bubble.agent {
+      align-self: flex-start;
+      background: var(--surface-2);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .chat-bubble.agent p { margin: 0 0 8px; }
+    .chat-bubble.agent p:last-child { margin-bottom: 0; }
+    .chat-bubble.agent ul, .chat-bubble.agent ol {
+      margin: 6px 0;
+      padding-left: 18px;
+    }
+    .chat-bubble.agent li { margin-bottom: 4px; }
+    .chat-bubble.agent strong { color: var(--primary); }
+    .chat-bubble.agent code {
+      background: rgba(255,255,255,0.06);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.82rem;
+    }
+
+    /* Loader (typing indicator) */
+    .chat-loader {
+      align-self: flex-start;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 18px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      border-bottom-left-radius: 4px;
+    }
+    .chat-loader-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      animation: chatBounce 1.2s infinite ease-in-out;
+    }
+    .chat-loader-dot:nth-child(2) { animation-delay: 0.15s; }
+    .chat-loader-dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes chatBounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* Input Area */
+    .chat-input-area {
+      padding: 12px 20px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .chat-input-wrap {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .chat-input-wrap input {
+      flex: 1;
+      padding: 11px 16px;
+      border-radius: 10px;
+    }
+    .chat-send-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--primary);
+      color: #0a0a0f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all var(--transition);
+    }
+    .chat-send-btn:hover {
+      background: #00e6b8;
+      transform: scale(1.05);
+    }
+    .chat-send-btn:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    /* Chat mobile */
+    @media (max-width: 768px) {
+      .chat-messages { max-height: 280px; }
+      .chat-bubble { max-width: 92%; font-size: 0.84rem; }
+      .chip { font-size: 0.74rem; padding: 6px 12px; }
+    }
+
   </style>
 </head>
 <body>
@@ -1102,6 +1321,68 @@
       </div>
 
     </div><!-- /results-section -->
+
+    <!-- =============================================
+         CHAT CONTEXTUAL POST-ANÁLISIS
+    ============================================= -->
+    <div id="chat-section" style="display:none; margin-top:40px;">
+      <div class="chat-container">
+        <!-- Chat Header -->
+        <div class="chat-header">
+          <div class="chat-header-left">
+            <div class="chat-avatar">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8z" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M7 9h6M7 12h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="chat-header-text">
+              <span class="chat-header-title">Pregúntale al agente sobre tu proceso</span>
+              <span class="chat-header-sub">Consultor Lean/Six Sigma con IA</span>
+            </div>
+          </div>
+          <button class="chat-toggle-btn" id="chat-toggle" onclick="toggleChatBody()" aria-label="Minimizar chat">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Suggested Questions -->
+        <div class="chat-suggestions" id="chat-suggestions">
+          <button class="chip" onclick="sendSuggested(this)">¿Cuánto tiempo tomaría implementar esto?</button>
+          <button class="chip" onclick="sendSuggested(this)">¿Qué herramienta me recomiendas para automatizar el paso más crítico?</button>
+          <button class="chip" onclick="sendSuggested(this)">¿Cuál es el retorno de inversión estimado?</button>
+        </div>
+
+        <!-- Chat Messages -->
+        <div class="chat-messages" id="chat-messages">
+          <div class="chat-empty" id="chat-empty">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="6" width="24" height="17" rx="4" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M10 23L8 28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M22 23L24 28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="12" cy="14" r="1.5" fill="currentColor"/>
+              <circle cx="20" cy="14" r="1.5" fill="currentColor"/>
+            </svg>
+            <p>Hazme una pregunta sobre tu análisis de proceso</p>
+          </div>
+        </div>
+
+        <!-- Chat Input -->
+        <div class="chat-input-area" id="chat-input-area">
+          <div class="chat-input-wrap">
+            <input type="text" id="chat-input" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')sendChatMessage()" autocomplete="off">
+            <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()" aria-label="Enviar mensaje">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 9H15M15 9L10 4M15 9L10 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /chat-section -->
+
   </section>
 
   <!-- =============================================
@@ -1343,6 +1624,13 @@
       resultsEl.classList.add('fade-in');
       resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+      // Reveal chat widget
+      const chatEl = document.getElementById('chat-section');
+      if (chatEl) {
+        chatEl.style.display = 'block';
+        chatEl.classList.add('fade-in');
+      }
+
       // Animate gauge
       setTimeout(animateGauge, 300);
 
@@ -1550,6 +1838,212 @@
       if (bpmnPanel && bpmnPanel.classList.contains('active')) initBpmn();
     }, 500);
   });
+
+  /* =============================================
+     CHAT CONTEXTUAL — LOGIC
+  ============================================= */
+
+  // Hardcoded demo analysis context (used in the demo frontend)
+  const demoAnalysisContext = {
+    proceso: "Aprobación de compras",
+    empresa: "Acme Corp",
+    score_optimizacion: 78,
+    kpis: {
+      tiempo_ahorrado: "32%",
+      costo_reducido: "25%",
+      desperdicios_detectados: 6
+    },
+    desperdicios: [
+      { tipo: "Esperas innecesarias entre aprobaciones", severidad: "Alta", categoria: "Lean", descripcion: "3 puntos de espera de 2-3 días hábiles" },
+      { tipo: "Doble verificación de presupuesto", severidad: "Alta", categoria: "Six Sigma", descripcion: "Misma validación en 2 departamentos" },
+      { tipo: "Formularios en papel duplicados", severidad: "Media", categoria: "Lean", descripcion: "3 formularios con datos repetidos" },
+      { tipo: "Aprobaciones secuenciales innecesarias", severidad: "Media", categoria: "Kaizen", descripcion: "4 niveles de aprobación para montos < $5,000" },
+      { tipo: "Re-trabajo por errores en datos manuales", severidad: "Media", categoria: "Six Sigma", descripcion: "18% de órdenes requieren corrección" },
+      { tipo: "Falta de visibilidad del estado", severidad: "Baja", categoria: "Lean", descripcion: "Sin tracking en tiempo real" }
+    ],
+    propuesta_tobe: {
+      mejoras: [
+        "Solicitud digital única con validación automática",
+        "Aprobación unificada (1 nivel para montos < $5,000)",
+        "Generación automática de orden de compra",
+        "Dashboard de tracking en tiempo real"
+      ],
+      tiempo_ciclo_actual: "5-7 días",
+      tiempo_ciclo_optimizado: "1-2 días"
+    }
+  };
+
+  // Chat state
+  let chatHistory = [];
+  let chatIsMinimized = false;
+  let isSendingChat = false;
+
+  // API base (adjustable)
+  const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8000'
+    : '';
+
+  function toggleChatBody() {
+    chatIsMinimized = !chatIsMinimized;
+    const suggestions = document.getElementById('chat-suggestions');
+    const messages = document.getElementById('chat-messages');
+    const inputArea = document.getElementById('chat-input-area');
+    const toggleBtn = document.getElementById('chat-toggle');
+
+    if (chatIsMinimized) {
+      suggestions.style.display = 'none';
+      messages.style.display = 'none';
+      inputArea.style.display = 'none';
+      toggleBtn.classList.add('collapsed');
+    } else {
+      suggestions.style.display = 'flex';
+      messages.style.display = 'flex';
+      inputArea.style.display = 'block';
+      toggleBtn.classList.remove('collapsed');
+    }
+  }
+
+  function sendSuggested(chipEl) {
+    const text = chipEl.textContent.trim();
+    document.getElementById('chat-input').value = text;
+    sendChatMessage();
+  }
+
+  function addChatBubble(text, role) {
+    const messagesEl = document.getElementById('chat-messages');
+    const emptyEl = document.getElementById('chat-empty');
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble ' + role;
+
+    if (role === 'agent') {
+      // Simple markdown rendering
+      bubble.innerHTML = renderSimpleMarkdown(text);
+    } else {
+      bubble.textContent = text;
+    }
+
+    messagesEl.appendChild(bubble);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
+  }
+
+  function showChatLoader() {
+    const messagesEl = document.getElementById('chat-messages');
+    const loader = document.createElement('div');
+    loader.className = 'chat-loader';
+    loader.id = 'chat-loader-active';
+    loader.innerHTML = '<div class="chat-loader-dot"></div><div class="chat-loader-dot"></div><div class="chat-loader-dot"></div>';
+    messagesEl.appendChild(loader);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function removeChatLoader() {
+    const loader = document.getElementById('chat-loader-active');
+    if (loader) loader.remove();
+  }
+
+  function renderSimpleMarkdown(text) {
+    // Basic markdown: bold, italic, lists, line breaks
+    let html = text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/^### (.+)$/gm, '<strong style="font-size:0.95rem;display:block;margin:10px 0 4px">$1</strong>')
+      .replace(/^## (.+)$/gm, '<strong style="font-size:1rem;display:block;margin:10px 0 4px">$1</strong>')
+      .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
+      .replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+    // Wrap consecutive <li> in <ul>
+    html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+    // Paragraphs from double newlines
+    html = html.split('\n\n').map(p => {
+      p = p.trim();
+      if (!p) return '';
+      if (p.startsWith('<ul>') || p.startsWith('<strong style')) return p;
+      return '<p>' + p.replace(/\n/g, '<br>') + '</p>';
+    }).join('');
+
+    return html || text;
+  }
+
+  async function sendChatMessage() {
+    if (isSendingChat) return;
+
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    input.value = '';
+    isSendingChat = true;
+    document.getElementById('chat-send-btn').disabled = true;
+
+    // Add user bubble
+    addChatBubble(msg, 'user');
+    chatHistory.push({ role: 'user', content: msg });
+
+    // Show loader
+    showChatLoader();
+
+    // Try API call, fallback to simulated response
+    let respuesta;
+    try {
+      const res = await fetch(API_BASE + '/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mensaje: msg,
+          contexto_analisis: demoAnalysisContext,
+          session_id: 'demo-session'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        respuesta = data.respuesta;
+      } else {
+        throw new Error('API no disponible');
+      }
+    } catch (e) {
+      // Simulated response for demo / offline mode
+      respuesta = generateDemoResponse(msg);
+    }
+
+    // Remove loader and show response
+    removeChatLoader();
+    addChatBubble(respuesta, 'agent');
+    chatHistory.push({ role: 'assistant', content: respuesta });
+
+    isSendingChat = false;
+    document.getElementById('chat-send-btn').disabled = false;
+    document.getElementById('chat-input').focus();
+  }
+
+  function generateDemoResponse(question) {
+    const q = question.toLowerCase();
+
+    if (q.includes('tiempo') && (q.includes('implementar') || q.includes('tomar'))) {
+      return '**Tiempo estimado de implementación: 8-12 semanas**\n\nBasado en el análisis de tu proceso de aprobación de compras, la implementación se divide en fases:\n\n- **Fase 1 (semanas 1-3):** Digitalización del formulario único y configuración de validación automática\n- **Fase 2 (semanas 4-6):** Implementación del flujo de aprobación unificada con reglas de negocio\n- **Fase 3 (semanas 7-9):** Integración con el sistema ERP para generación automática de órdenes\n- **Fase 4 (semanas 10-12):** Dashboard de tracking, pruebas UAT y capacitación\n\nEste timeline asume un equipo de 2-3 personas dedicadas y puede acelerarse si ya cuentan con infraestructura digital básica.';
+    }
+
+    if (q.includes('herramienta') || q.includes('automatizar') || q.includes('software')) {
+      return '**Herramientas recomendadas para automatizar el paso crítico**\n\nEl paso más crítico identificado es la **validación y aprobación**, donde se concentran las esperas. Recomiendo:\n\n- **Microsoft Power Automate** — Ideal si ya usan Microsoft 365. Flujos de aprobación con formularios dinámicos, notificaciones y escalamiento automático. Costo: ~$15 USD/usuario/mes.\n- **Kissflow** — Plataforma no-code especializada en BPM. Excelente para procesos de compras con múltiples niveles de aprobación.\n- **SAP Ariba** — Si ya tienen SAP, es la integración más natural para procurement end-to-end.\n\nPara el **dashboard de tracking**, Retool o Metabase pueden conectarse a tu base de datos existente y dar visibilidad en tiempo real con mínimo esfuerzo de desarrollo.';
+    }
+
+    if (q.includes('retorno') || q.includes('roi') || q.includes('inversión')) {
+      return '**ROI estimado del proyecto de optimización**\n\nBasado en los KPIs de tu análisis:\n\n- **Reducción de tiempo de ciclo:** De 5-7 días a 1-2 días (ahorro de **68% en tiempo**)\n- **Reducción de costos operativos:** **25%** (eliminación de re-trabajo y doble verificación)\n- **Ahorro estimado anual:** Si procesan ~200 órdenes/mes con costo promedio de $50 USD por orden en tiempo administrativo, el ahorro sería de **~$30,000 USD/año**\n\n**Inversión estimada:** $15,000-25,000 USD (licencias + implementación)\n\n**Payback period:** 6-10 meses\n\nEsto sin contar beneficios intangibles como mayor satisfacción de proveedores, reducción de errores y mejor compliance.';
+    }
+
+    return '**Análisis de tu consulta**\n\nBasado en el análisis de tu proceso de **aprobación de compras** con un score de optimización del **78%**, tu proceso tiene potencial significativo de mejora.\n\nSe detectaron **6 desperdicios principales** que afectan el tiempo de ciclo y los costos operativos. Las oportunidades más impactantes están en la eliminación de esperas entre aprobaciones y la digitalización del flujo.\n\n¿Te gustaría que profundice en algún aspecto específico? Puedo detallarte sobre:\n- Implementación técnica\n- Gestión del cambio\n- Métricas de seguimiento post-implementación\n- Análisis de riesgos';
+  }
+
+  /** Expose chat history for report.html to pick up */
+  function getChatHistory() {
+    return chatHistory;
+  }
+
 </script>
 </body>
 </html>

@@ -1582,15 +1582,14 @@
       document.getElementById('dropzone').style.borderColor = 'var(--primary)';
     }
   }
-
+  
   /* =============================================
      ANALYZE BUTTON — LOADING + REVEAL
   ============================================= */
   let analysisRan = false;
 
-  function startAnalysis() {
+  async function startAnalysis() {
     if (analysisRan) {
-      // Scroll to results if already done
       document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
@@ -1599,46 +1598,68 @@
     const spinner = document.getElementById('spinner');
     const btnText = document.getElementById('btn-text');
 
+    const procesoTexto = document.getElementById('process-desc')?.value || '';
+
+    if (!procesoTexto.trim()) {
+      alert('Por favor describe el proceso antes de analizar.');
+      return;
+    }
+
     // Loading state
     btn.classList.add('loading');
     spinner.style.display = 'block';
     btnText.style.opacity = '0';
     btnText.innerHTML = 'Analizando proceso con AI...';
 
-    setTimeout(() => {
-      // Restore button
-      spinner.style.display = 'none';
-      btnText.style.opacity = '1';
-      btnText.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline;vertical-align:middle;margin-right:6px">
-          <path d="M2 8L6.5 12.5L14 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        Análisis completado — Ver resultados
-      `;
-      btn.classList.remove('loading');
-      btn.style.background = '#22c55e';
+    try {
+      const res = await fetch(API_BASE + '/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proceso: procesoTexto })
+      });
 
-      // Reveal results
-      const resultsEl = document.getElementById('results-section');
-      resultsEl.style.display = 'block';
-      resultsEl.classList.add('fade-in');
-      resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (!res.ok) throw new Error('Error en la API: ' + res.status);
 
-      // Reveal chat widget
-      const chatEl = document.getElementById('chat-section');
-      if (chatEl) {
-        chatEl.style.display = 'block';
-        chatEl.classList.add('fade-in');
-      }
+      const data = await res.json();
+      console.log('Resultado del agente:', data);
+      // TODO: poblar secciones con data cuando conozcamos la estructura del JSON
 
-      // Animate gauge
-      setTimeout(animateGauge, 300);
+    } catch (error) {
+      console.warn('API no disponible, usando demo:', error);
+    }
 
-      // Load BPMN if not already
-      initBpmn();
+    // Restore button
+    spinner.style.display = 'none';
+    btnText.style.opacity = '1';
+    btnText.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline;vertical-align:middle;margin-right:6px">
+        <path d="M2 8L6.5 12.5L14 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Análisis completado — Ver resultados
+    `;
+    btn.classList.remove('loading');
+    btn.style.background = '#22c55e';
 
-      analysisRan = true;
-    }, 2000);
+    // Reveal results
+    const resultsEl = document.getElementById('results-section');
+    resultsEl.style.display = 'block';
+    resultsEl.classList.add('fade-in');
+    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Reveal chat widget
+    const chatEl = document.getElementById('chat-section');
+    if (chatEl) {
+      chatEl.style.display = 'block';
+      chatEl.classList.add('fade-in');
+    }
+
+    // Animate gauge
+    setTimeout(animateGauge, 300);
+
+    // Load BPMN if not already
+    initBpmn();
+
+    analysisRan = true;
   }
 
   /* =============================================

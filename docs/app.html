@@ -1642,7 +1642,7 @@
       const reportRes = await fetch(API_BASE + `/sessions/${sessionId}/report`);
       const data = await reportRes.json();
       console.log('Reporte completo:', data);
-      // TODO: poblar secciones con data
+      populateResults(data);
 
     } catch (error) {
       console.warn('API no disponible, usando demo:', error);
@@ -2085,6 +2085,36 @@
     return chatHistory;
   }
 
+
+  function populateResults(data) {
+    const { asis_process, tobe_process, waste_analysis, kpi_report } = data;
+    const ct = kpi_report.cycle_time || {};
+    const wr = kpi_report.waste_reduction || {};
+    const score = Math.round(Math.min(95, 60 + (wr.activities_eliminated || 3) * 5));
+    const gaugeCenter = document.querySelector("#gauge-arc ~ text, .gauge-svg text");
+    const allTexts = document.querySelectorAll(".gauge-svg text");
+    if (allTexts[0]) allTexts[0].textContent = score + "%";
+    window._gaugeScore = score;
+    const kpiCards = document.querySelectorAll("#panel-resumen .kpi-card");
+    if (kpiCards[0]) kpiCards[0].querySelector(".kpi-value").childNodes[kpiCards[0].querySelector(".kpi-value").childNodes.length-1].textContent = " " + (ct.reduction_percentage ?? "—") + "%";
+    if (kpiCards[1]) kpiCards[1].querySelector(".kpi-value").childNodes[kpiCards[1].querySelector(".kpi-value").childNodes.length-1].textContent = " " + (wr.cost_reduction_percentage ?? "—") + "%";
+    if (kpiCards[2]) kpiCards[2].querySelector(".kpi-value").childNodes[kpiCards[2].querySelector(".kpi-value").childNodes.length-1].textContent = " " + (wr.activities_eliminated ?? "—");
+    const summaryText = document.querySelector(".summary-text");
+    if (summaryText) summaryText.innerHTML = "El proceso de <strong>" + asis_process.name + "</strong> presenta oportunidades de optimización. Se identificaron <strong>" + (waste_analysis.total_activities || 0) + " actividades</strong> con desperdicios que pueden reducir el tiempo de ciclo en <strong>" + (ct.reduction_percentage ?? "—") + "%</strong> y los costos en <strong>" + (wr.cost_reduction_percentage ?? "—") + "%</strong>.";
+    const wasteList = document.querySelector("#panel-desperdicios .waste-list");
+    if (wasteList && waste_analysis.activity_details && waste_analysis.activity_details.length) {
+      const sClass = s => s === "high" ? "alta" : s === "medium" ? "media" : "baja";
+      wasteList.innerHTML = waste_analysis.activity_details.map(a => "<div class=\"waste-card\"><div class=\"waste-header\"><span class=\"waste-badge " + sClass(a.severity) + "\">" + (a.waste_type || "Desperdicio") + "</span><span class=\"waste-title\">" + a.activity_name + "</span></div><p class=\"waste-desc\">" + (a.recommendation || a.description || "") + "</p></div>").join("");
+    }
+    const asisHeader = document.querySelector("#panel-asistobe .comparison-card.asis .comparison-header");
+    const tobeHeader = document.querySelector("#panel-asistobe .comparison-card.tobe .comparison-header");
+    if (asisHeader) asisHeader.textContent = asis_process.name || "Proceso Actual";
+    if (tobeHeader) tobeHeader.textContent = tobe_process.name || "Proceso Optimizado";
+    const asisList = document.querySelector("#panel-asistobe .comparison-card.asis .steps-list");
+    const tobeList = document.querySelector("#panel-asistobe .comparison-card.tobe .steps-list");
+    if (asisList && asis_process.activities && asis_process.activities.length) asisList.innerHTML = asis_process.activities.map((a,i) => "<div class=\"step-item\"><span class=\"step-num\">" + (i+1) + "</span><span class=\"step-text\">" + (a.name || a) + "</span></div>").join("");
+    if (tobeList && tobe_process.activities && tobe_process.activities.length) tobeList.innerHTML = tobe_process.activities.map((a,i) => "<div class=\"step-item\"><span class=\"step-num\">" + (i+1) + "</span><span class=\"step-text\">" + (a.name || a) + "</span></div>").join("");
+  }
 </script>
 </body>
 </html>

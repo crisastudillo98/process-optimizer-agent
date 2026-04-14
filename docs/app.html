@@ -1616,7 +1616,7 @@
       const res = await fetch(API_BASE + '/analyze/text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texto: procesoTexto })
+        body: JSON.stringify({ raw_input: procesoTexto })
       });
 
       if (!res.ok) throw new Error('Error al iniciar análisis: ' + res.status);

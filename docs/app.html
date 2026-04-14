@@ -1612,17 +1612,37 @@
     btnText.innerHTML = 'Analizando proceso con AI...';
 
     try {
-      const res = await fetch(API_BASE + '/analyze', {
+      // Paso 1 — iniciar análisis
+      const res = await fetch(API_BASE + '/analyze/text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proceso: procesoTexto })
+        body: JSON.stringify({ texto: procesoTexto })
       });
 
-      if (!res.ok) throw new Error('Error en la API: ' + res.status);
+      if (!res.ok) throw new Error('Error al iniciar análisis: ' + res.status);
+      const session = await res.json();
+      const sessionId = session.session_id;
+      console.log('Sesión creada:', sessionId);
 
-      const data = await res.json();
-      console.log('Resultado del agente:', data);
-      // TODO: poblar secciones con data cuando conozcamos la estructura del JSON
+      // Paso 2 — polling hasta que termine
+      let intentos = 0;
+      let completado = false;
+      while (!completado && intentos < 30) {
+        await new Promise(r => setTimeout(r, 3000));
+        const statusRes = await fetch(API_BASE + `/sessions/${sessionId}/status`);
+        const status = await statusRes.json();
+        console.log('Estado:', status);
+        intentos++;
+        if (status.status === 'completed' || status.status === 'done') {
+          completado = true;
+        }
+      }
+
+      // Paso 3 — obtener reporte completo
+      const reportRes = await fetch(API_BASE + `/sessions/${sessionId}/report`);
+      const data = await reportRes.json();
+      console.log('Reporte completo:', data);
+      // TODO: poblar secciones con data
 
     } catch (error) {
       console.warn('API no disponible, usando demo:', error);

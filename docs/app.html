@@ -444,7 +444,20 @@
     .badge-lean  { background: rgba(99,102,241,0.15); color: #a5b4fc; }
     .badge-ss    { background: rgba(0,212,170,0.15);  color: var(--primary); }
     .badge-kai   { background: rgba(251,191,36,0.15); color: #fbbf24; }
-    .waste-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+    
+      .automation-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-top: 1rem; }
+      .auto-card { background: rgba(0,212,170,0.05); border: 1px solid rgba(0,212,170,0.2); border-radius: 10px; padding: 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; animation: fadeInUp 0.4s ease both; }
+      .auto-card-header { display: flex; align-items: flex-start; gap: 0.7rem; }
+      .auto-icon { font-size: 1.5rem; line-height: 1; }
+      .auto-title-group { display: flex; flex-direction: column; gap: 0.2rem; }
+      .auto-activity { font-weight: 600; font-size: 0.9rem; color: #e2e8f0; }
+      .auto-saving { font-size: 0.72rem; color: #00d4aa; background: rgba(0,212,170,0.12); border-radius: 4px; padding: 1px 6px; display: inline-block; width: fit-content; }
+      .auto-tool-badge { display: flex; flex-direction: column; gap: 0.1rem; background: rgba(255,255,255,0.04); border-radius: 6px; padding: 0.5rem 0.7rem; }
+      .auto-tool-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; }
+      .auto-tool-name { font-size: 0.82rem; color: #00d4aa; font-weight: 500; }
+      .auto-justification { font-size: 0.78rem; color: #94a3b8; line-height: 1.5; margin: 0; }
+      @keyframes fadeInUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+      .waste-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
 
     /* =============================================
        TAB 3 — AS-IS vs TO-BE
@@ -1172,6 +1185,14 @@
         </div>
       </div>
 
+      <!-- ==== TAB: AUTOMATIZACIÓN ==== -->
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="section-header">
+          <h2>⚡ Oportunidades de Automatización</h2>
+        </div>
+        <div class="automation-grid" id="automation-section"></div>
+      </div>
+
       <!-- ==== TAB: DESPERDICIOS ==== -->
       <div class="result-panel" id="panel-desperdicios">
         <div class="waste-list">
@@ -1238,13 +1259,13 @@
         <div class="comparison-grid">
 
           <!-- AS-IS -->
-          <div class="comparison-card">
+          <div class="comparison-card asis">
             <div class="comparison-header">⚠ Proceso AS-IS (Actual)</div>
-            <div class="metric-row"><span class="metric-label">Tiempo de ciclo</span><span class="metric-value">12 días</span></div>
-            <div class="metric-row"><span class="metric-label">Pasos del proceso</span><span class="metric-value">14</span></div>
-            <div class="metric-row"><span class="metric-label">Puntos de aprobación</span><span class="metric-value">5</span></div>
-            <div class="metric-row"><span class="metric-label">Costo por transacción</span><span class="metric-value">$85 USD</span></div>
-            <div class="metric-row"><span class="metric-label">Tasa de error</span><span class="metric-value">35%</span></div>
+            <div class="metric-row"><span class="metric-label">Tiempo de ciclo</span><span class="metric-value" id="asis-cycle-time">12 días</span></div>
+            <div class="metric-row"><span class="metric-label">Pasos del proceso</span><span class="metric-value" id="asis-steps">14</span></div>
+            <div class="metric-row" id="row-asis-approval"><span class="metric-label">Puntos de aprobación</span><span class="metric-value" id="asis-approval">5</span></div>
+            <div class="metric-row" id="row-asis-cost" style="display:none"></div>
+            <div class="metric-row" id="row-asis-error" style="display:none"></div>
             <div class="steps-section">
               <div class="steps-label">Pasos del proceso</div>
               <ol class="steps-list">
@@ -1264,24 +1285,15 @@
             <div class="comparison-header">✓ Proceso TO-BE (Optimizado)</div>
             <div class="metric-row">
               <span class="metric-label">Tiempo de ciclo</span>
-              <span class="metric-value improved">4 días <span class="improve-badge">-67%</span></span>
+              <span class="metric-value improved" id="tobe-cycle-time">4 días <span class="improve-badge" id="tobe-cycle-pct">-67%</span></span>
             </div>
             <div class="metric-row">
               <span class="metric-label">Pasos del proceso</span>
-              <span class="metric-value improved">8 <span class="improve-badge">-43%</span></span>
+              <span class="metric-value improved" id="tobe-steps">8 <span class="improve-badge" id="tobe-steps-pct">-43%</span></span>
             </div>
-            <div class="metric-row">
-              <span class="metric-label">Puntos de aprobación</span>
-              <span class="metric-value improved">2 <span class="improve-badge">-60%</span></span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-label">Costo por transacción</span>
-              <span class="metric-value improved">$32 USD <span class="improve-badge">-62%</span></span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-label">Tasa de error</span>
-              <span class="metric-value improved">8% <span class="improve-badge">-77%</span></span>
-            </div>
+            <div class="metric-row" id="row-tobe-approval" style="display:none"></div>
+            <div class="metric-row" id="row-tobe-cost" style="display:none"></div>
+            <div class="metric-row" id="row-tobe-error" style="display:none"></div>
             <div class="steps-section">
               <div class="steps-label">Pasos del proceso</div>
               <ol class="steps-list">
@@ -1643,6 +1655,7 @@
       const data = await reportRes.json();
       console.log('Reporte completo:', data);
       populateResults(data);
+      window.__lastReport = data;
 
     } catch (error) {
       console.warn('API no disponible, usando demo:', error);
@@ -2088,32 +2101,129 @@
 
   function populateResults(data) {
     const { asis_process, tobe_process, waste_analysis, kpi_report } = data;
+
     const ct = kpi_report.cycle_time || {};
     const wr = kpi_report.waste_reduction || {};
-    const score = Math.round(Math.min(95, 60 + (wr.activities_eliminated || 3) * 5));
-    const gaugeCenter = document.querySelector("#gauge-arc ~ text, .gauge-svg text");
+    const eff = kpi_report.process_efficiency || {};
+
+    // ── 1. GAUGE ──
+    const score = Math.round(eff.tobe_value ?? 78);
     const allTexts = document.querySelectorAll(".gauge-svg text");
     if (allTexts[0]) allTexts[0].textContent = score + "%";
+    document.querySelector(".gauge-svg")?.setAttribute("aria-label", `Puntaje de optimización ${score}%`);
     window._gaugeScore = score;
+
+    // ── 2. KPI CARDS ──
     const kpiCards = document.querySelectorAll("#panel-resumen .kpi-card");
-    if (kpiCards[0]) kpiCards[0].querySelector(".kpi-value").childNodes[kpiCards[0].querySelector(".kpi-value").childNodes.length-1].textContent = " " + (ct.reduction_percentage ?? "—") + "%";
-    if (kpiCards[1]) kpiCards[1].querySelector(".kpi-value").childNodes[kpiCards[1].querySelector(".kpi-value").childNodes.length-1].textContent = " " + (wr.cost_reduction_percentage ?? "—") + "%";
-    if (kpiCards[2]) kpiCards[2].querySelector(".kpi-value").childNodes[kpiCards[2].querySelector(".kpi-value").childNodes.length-1].textContent = " " + (wr.activities_eliminated ?? "—");
+    if (kpiCards[0]) kpiCards[0].querySelector(".kpi-value").childNodes[kpiCards[0].querySelector(".kpi-value").childNodes.length-1].textContent = " " + (ct.reduction_pct ?? "—") + "%";
+    if (kpiCards[1]) kpiCards[1].querySelector(".kpi-value").childNodes[kpiCards[1].querySelector(".kpi-value").childNodes.length-1].textContent = " " + (wr.reduction_pct ?? "—") + "%";
+    if (kpiCards[2]) kpiCards[2].querySelector(".kpi-value").childNodes[kpiCards[2].querySelector(".kpi-value").childNodes.length-1].textContent = " " + (waste_analysis.total_activities ?? "—");
+
+    // ── 3. SUMMARY TEXT ──
     const summaryText = document.querySelector(".summary-text");
-    if (summaryText) summaryText.innerHTML = "El proceso de <strong>" + asis_process.name + "</strong> presenta oportunidades de optimización. Se identificaron <strong>" + (waste_analysis.total_activities || 0) + " actividades</strong> con desperdicios que pueden reducir el tiempo de ciclo en <strong>" + (ct.reduction_percentage ?? "—") + "%</strong> y los costos en <strong>" + (wr.cost_reduction_percentage ?? "—") + "%</strong>.";
+    if (summaryText) summaryText.innerHTML = `El proceso de <strong>${asis_process.name}</strong> presenta oportunidades de optimización. Se identificaron <strong>${waste_analysis.total_activities || 0} actividades</strong> con desperdicios que pueden reducir el tiempo de ciclo en <strong>${ct.reduction_pct ?? "—"}%</strong> y los desperdicios Lean en <strong>${wr.reduction_pct ?? "—"}%</strong>. ROI estimado: <strong>${kpi_report.estimated_roi_pct ?? "—"}%</strong> en ${kpi_report.estimated_payback_months ?? "—"} meses.`;
+
+    // ── 4. DESPERDICIOS ──
     const wasteList = document.querySelector("#panel-desperdicios .waste-list");
-    if (wasteList && waste_analysis.activity_details && waste_analysis.activity_details.length) {
-      const sClass = s => s === "high" ? "alta" : s === "medium" ? "media" : "baja";
-      wasteList.innerHTML = waste_analysis.activity_details.map(a => "<div class=\"waste-card\"><div class=\"waste-header\"><span class=\"waste-badge " + sClass(a.severity) + "\">" + (a.waste_type || "Desperdicio") + "</span><span class=\"waste-title\">" + a.activity_name + "</span></div><p class=\"waste-desc\">" + (a.recommendation || a.description || "") + "</p></div>").join("");
+    // ── AUTOMATIZACIÓN (independiente) ──
+    const autoContainer = document.getElementById('automation-section');
+    if (autoContainer && waste_analysis.activity_details) {
+        const automatable = waste_analysis.activity_details.filter(a => a.is_automatable === true);
+        const toolIcons = {
+          'RPA': '🤖', 'IA': '🧠', 'agendamiento': '📅', 'Plantilla': '📄',
+          'automatiz': '⚙️', 'clasificaci': '🔍'
+        };
+        const getIcon = (tool) => {
+          if (!tool) return '⚙️';
+          for (const [key, icon] of Object.entries(toolIcons)) {
+            if (tool.toLowerCase().includes(key.toLowerCase())) return icon;
+          }
+          return '⚙️';
+        };
+        autoContainer.innerHTML = automatable.map((a, i) => `
+          <div class="auto-card" style="animation-delay:${i * 0.1}s">
+            <div class="auto-card-header">
+              <span class="auto-icon">${getIcon(a.automation_tool)}</span>
+              <div class="auto-title-group">
+                <span class="auto-activity">${a.activity_name}</span>
+                ${a.estimated_waste_time_min > 0 ? `<span class="auto-saving">⏱ Ahorra ${a.estimated_waste_time_min} min</span>` : ''}
+              </div>
+            </div>
+            <div class="auto-tool-badge">
+              <span class="auto-tool-label">Herramienta</span>
+              <span class="auto-tool-name">${a.automation_tool}</span>
+            </div>
+            <p class="auto-justification">${a.automation_justification}</p>
+          </div>
+        `).join('');
     }
+
+    if (wasteList && waste_analysis.activity_details && waste_analysis.activity_details.length) {
+      const wasteTypeColor = t => {
+        const map = { sobreproceso: "#6366f1", movimiento: "#f59e0b", espera: "#ef4444", sobreproduccion: "#8b5cf6", defectos: "#ec4899", inventario: "#14b8a6", transporte: "#f97316" };
+        return map[t] || "#94a3b8";
+      };
+      wasteList.innerHTML = waste_analysis.activity_details
+        .filter(a => a.waste_classification === "desperdicio" && a.waste_type)
+        .map(a => {
+          const color = wasteTypeColor(a.waste_type);
+          const autoBadge = a.is_automatable ? `<span style="font-size:0.7rem;background:#00d4aa22;color:#00d4aa;border:1px solid #00d4aa44;border-radius:4px;padding:1px 6px;margin-left:6px">Automatizable</span>` : "";
+          const timeBadge = a.estimated_waste_time_min > 0 ? `<span style="font-size:0.7rem;background:rgba(255,255,255,0.06);color:#94a3b8;border-radius:4px;padding:1px 6px;margin-left:6px">⏱ ${a.estimated_waste_time_min} min</span>` : "";
+          return `<div class="waste-card">
+            <div class="waste-header">
+              <span class="waste-badge" style="background:${color}22;color:${color};border:1px solid ${color}44;border-radius:4px;padding:2px 8px;font-size:0.75rem;font-weight:600">${a.waste_type}</span>
+              <span class="waste-title">${a.activity_name}${autoBadge}${timeBadge}</span>
+            </div>
+            <p class="waste-desc">${a.waste_justification || ""}</p>
+            ${a.automation_tool ? `<p class="waste-desc" style="color:#00d4aa;margin-top:4px">💡 ${a.automation_tool}</p>` : ""}
+          </div>`;
+        }).join("");
+    }
+
+    // ── 5. AS-IS vs TO-BE headers ──
     const asisHeader = document.querySelector("#panel-asistobe .comparison-card.asis .comparison-header");
     const tobeHeader = document.querySelector("#panel-asistobe .comparison-card.tobe .comparison-header");
     if (asisHeader) asisHeader.textContent = asis_process.name || "Proceso Actual";
     if (tobeHeader) tobeHeader.textContent = tobe_process.name || "Proceso Optimizado";
+
+    // ── 6. AS-IS vs TO-BE pasos ──
     const asisList = document.querySelector("#panel-asistobe .comparison-card.asis .steps-list");
     const tobeList = document.querySelector("#panel-asistobe .comparison-card.tobe .steps-list");
-    if (asisList && asis_process.activities && asis_process.activities.length) asisList.innerHTML = asis_process.activities.map((a,i) => "<div class=\"step-item\"><span class=\"step-num\">" + (i+1) + "</span><span class=\"step-text\">" + (a.name || a) + "</span></div>").join("");
-    if (tobeList && tobe_process.activities && tobe_process.activities.length) tobeList.innerHTML = tobe_process.activities.map((a,i) => "<div class=\"step-item\"><span class=\"step-num\">" + (i+1) + "</span><span class=\"step-text\">" + (a.name || a) + "</span></div>").join("");
+    if (asisList && asis_process.activities && asis_process.activities.length)
+      asisList.innerHTML = asis_process.activities.map((a,i) => `<div class="step-item"><span class="step-num">${i+1}</span><span class="step-text">${a.name || a}</span></div>`).join("");
+    if (tobeList && tobe_process.activities && tobe_process.activities.length)
+      tobeList.innerHTML = tobe_process.activities.map((a,i) => {
+        const statusColor = a.status === "automatizada" ? "#00d4aa" : a.status === "eliminada" ? "#ef4444" : "#94a3b8";
+        const badge = a.status ? `<span style="font-size:0.7rem;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;border-radius:4px;padding:1px 6px;margin-left:6px">${a.status}</span>` : "";
+        const reduction = a.duration_reduction_pct > 0 ? `<span style="font-size:0.75rem;color:#00d4aa;margin-left:4px">-${a.duration_reduction_pct}%</span>` : "";
+        return `<li><span class="step-num">${i+1}</span> ${a.name || a}${badge}${reduction}</li>`;
+      }).join("");
+
+    // ── 7. MÉTRICAS AS-IS ──
+    const hc = kpi_report.headcount || {};
+    if (document.getElementById("asis-cycle-time"))
+      document.getElementById("asis-cycle-time").textContent = ct.asis_value ? ct.asis_value + " min" : "—";
+    if (document.getElementById("asis-steps"))
+      document.getElementById("asis-steps").textContent = hc.asis_value ?? "—";
+
+    // ── 8. MÉTRICAS TO-BE ──
+    if (document.getElementById("tobe-cycle-time")) {
+      const tobeEl = document.getElementById("tobe-cycle-time");
+      const pctEl = document.getElementById("tobe-cycle-pct");
+      tobeEl.childNodes[0].textContent = ct.tobe_value ? ct.tobe_value + " min " : "— ";
+      if (pctEl) pctEl.textContent = "-" + (ct.reduction_pct ?? "—") + "%";
+    }
+    if (document.getElementById("tobe-steps")) {
+      const tobeStepsEl = document.getElementById("tobe-steps");
+      const pctStepsEl = document.getElementById("tobe-steps-pct");
+      tobeStepsEl.childNodes[0].textContent = (hc.tobe_value ?? "—") + " ";
+      if (pctStepsEl) pctStepsEl.textContent = "-" + (hc.reduction_pct ?? "—") + "%";
+    }
+
+    // ── 9. PASOS AS-IS ──
+    const asisOl = document.querySelector("#panel-asistobe .comparison-card.asis .steps-list");
+    if (asisOl && asis_process.activities && asis_process.activities.length)
+      asisOl.innerHTML = asis_process.activities.map((a,i) => `<li><span class="step-num">${i+1}</span> ${a.name || a}</li>`).join("");
   }
 </script>
 </body>

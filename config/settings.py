@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     langsmith_project: str = Field(default="process-optimizer", env="LANGSMITH_PROJECT")
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
 
+    # Database
+    database_url: str = Field(default="sqlite:///storage/process_optimizer.db", env="DATABASE_URL")
+
     # HITL
     hitl_enabled: bool = Field(default=True, env="HITL_ENABLED")
 

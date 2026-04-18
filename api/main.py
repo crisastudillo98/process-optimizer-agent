@@ -20,6 +20,10 @@ from models.schemas import (
 )
 from config.settings import settings
 from observability.logger import get_logger
+from storage.database import engine, SessionLocal
+from storage import models as db_models
+from storage import repository as repo
+db_models.Base.metadata.create_all(bind=engine)
 
 logger = get_logger(__name__)
 
@@ -80,6 +84,11 @@ class AnalyzeTextRequest(BaseModel):
             "Un asistente revisa los datos (30 min), genera la factura en SAP (20 min), "
             "envía por correo (5 min) y espera confirmación hasta 2 días hábiles."
         ],
+    )
+    process_name: str = Field(
+        default="Sin nombre",
+        max_length=255,
+        description="Nombre descriptivo del análisis (ej: Proceso de contratación RRHH)",
     )
 
 
@@ -166,9 +175,13 @@ async def analyze_text(
     )
     _sessions[session_id] = state
 
+    # Persistir en BD
+    with SessionLocal() as db:
+        repo.create_analysis(db, session_id, request.process_name, request.raw_input)
+
     logger.info(f"Nueva sesión: {session_id} — input: {len(request.raw_input)} chars")
 
-    background_tasks.add_task(_run_pipeline, session_id)
+    background_tasks.add_task(_run_pipeline, session_id, request.process_name)
 
     return SessionResponse(
         session_id=session_id,
@@ -258,7 +271,7 @@ async def analyze_file(
 # PIPELINE RUNNER (background task)
 # ─────────────────────────────────────────────
 
-async def _run_pipeline(session_id: str) -> None:
+async def _run_pipeline(session_id: str, process_name: str = "Sin nombre") -> None:
     if session_id not in _sessions:
         logger.error(f"Pipeline abortado: sesión {session_id} no existe en memoria")
         return
@@ -274,9 +287,22 @@ async def _run_pipeline(session_id: str) -> None:
         # ✅ Guardar solo si invoke retornó resultado válido
         if result and isinstance(result, dict):
             _sessions[session_id] = AgentState(**result)
+            # Persistir resultado completo en BD
+            final_state = _sessions[session_id]
+            full_report = {
+                "asis_process":   final_state.asis_process.model_dump() if final_state.asis_process else None,
+                "waste_analysis": final_state.waste_analysis.model_dump() if final_state.waste_analysis else None,
+                "tobe_process":   final_state.tobe_process.model_dump() if final_state.tobe_process else None,
+                "kpi_report":     final_state.kpi_report.model_dump() if final_state.kpi_report else None,
+            }
+            score = final_state.waste_analysis.waste_percentage if final_state.waste_analysis else None
+            with SessionLocal() as db:
+                repo.complete_analysis(db, session_id, full_report, score)
         else:
             _sessions[session_id].current_node = "error"
             _sessions[session_id].errors.append("pipeline: resultado inválido del grafo")
+            with SessionLocal() as db:
+                repo.fail_analysis(db, session_id, _sessions[session_id].errors)
 
         logger.info(
             f"Pipeline completado: {session_id} — "
@@ -289,6 +315,8 @@ async def _run_pipeline(session_id: str) -> None:
         if session_id in _sessions:
             _sessions[session_id].errors.append(f"pipeline: {str(e)}")
             _sessions[session_id].current_node = "error"
+            with SessionLocal() as db:
+                repo.fail_analysis(db, session_id, _sessions[session_id].errors)
         else:
             logger.error(f"Sesión {session_id} desapareció durante el pipeline")
 
@@ -563,6 +591,59 @@ async def rag_stats():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(e),
         )
+
+
+# ─────────────────────────────────────────────
+# HISTORIAL — ANÁLISIS PERSISTIDOS
+# ─────────────────────────────────────────────
+
+@app.get(
+    "/analyses",
+    tags=["Historial"],
+    summary="Listar historial de análisis persistidos",
+)
+async def list_analyses(limit: int = 50, offset: int = 0):
+    """Retorna el historial de análisis guardados en BD, ordenados por fecha descendente."""
+    with SessionLocal() as db:
+        records = repo.list_analyses(db, limit=limit, offset=offset)
+    return {
+        "total": len(records),
+        "analyses": [
+            {
+                "id":                       r.id,
+                "process_name":             r.process_name,
+                "status":                   r.status,
+                "score":                    r.score,
+                "cycle_time_reduction_pct": r.cycle_time_reduction_pct,
+                "automation_coverage_pct":  r.automation_coverage_pct,
+                "created_at":               r.created_at.isoformat() if r.created_at else None,
+                "completed_at":             r.completed_at.isoformat() if r.completed_at else None,
+                "has_errors":               r.has_errors,
+            }
+            for r in records
+        ],
+    }
+
+
+@app.get(
+    "/analyses/{session_id}",
+    tags=["Historial"],
+    summary="Obtener análisis completo desde BD",
+)
+async def get_analysis(session_id: str):
+    """Retorna el resultado completo de un análisis persistido en BD."""
+    with SessionLocal() as db:
+        record = repo.get_analysis(db, session_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Análisis '{session_id}' no encontrado.")
+    import json
+    return {
+        "id":           record.id,
+        "process_name": record.process_name,
+        "status":       record.status,
+        "created_at":   record.created_at.isoformat() if record.created_at else None,
+        "result":       json.loads(record.result_json) if record.result_json else None,
+    }
 
 
 # ─────────────────────────────────────────────

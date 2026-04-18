@@ -720,10 +720,28 @@
       .gauge-wrap { flex-direction: row; align-items: center; }
       .kpi-grid { grid-template-columns: 1fr 1fr; }
       .comparison-grid { grid-template-columns: 1fr; }
+
+      /* Automatización responsive */
+      .automation-grid { grid-template-columns: 1fr; }
+      .auto-card { padding: 0.9rem; }
+      .auto-card-header { gap: 0.5rem; }
+      .auto-icon { font-size: 1.2rem; }
+
+      /* Desperdicios responsive */
+      .waste-header { flex-wrap: wrap; gap: 0.4rem; }
+      .waste-title { font-size: 0.85rem; min-width: unset; width: 100%; }
+      .waste-card { padding: 0.9rem; }
+
+      /* BPMN responsive */
+      #bpmn-container { height: 320px !important; }
+      .bpmn-controls { flex-wrap: wrap; gap: 0.4rem; }
     }
 
     @media (max-width: 480px) {
       .kpi-grid { grid-template-columns: 1fr; }
+      .automation-grid { grid-template-columns: 1fr; }
+      .auto-saving { display: none; }
+      #bpmn-container { height: 260px !important; }
     }
 
     /* =============================================
@@ -1729,115 +1747,108 @@
   /* =============================================
      BPMN DIAGRAM
   ============================================= */
-  const bpmnXml = `<?xml version="1.0" encoding="UTF-8"?>
+  function generateBpmnXml(activities) {
+    const startX = 100, startY = 160, taskW = 140, taskH = 60, gapX = 80, eventR = 20;
+    let x = startX;
+    const shapes = [], edges = [], elems = [], connElems = [];
+
+    elems.push('<startEvent id="StartEvent_1" name="Inicio"/>');
+    shapes.push(`<bpmndi:BPMNShape id="Shape_Start" bpmnElement="StartEvent_1">
+        <dc:Bounds x="${x}" y="${startY}" width="${eventR*2}" height="${eventR*2}"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="${x-8}" y="${startY+eventR*2+5}" width="56" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>`);
+    let prevId = 'StartEvent_1', prevX = x + eventR*2;
+    x += eventR*2 + gapX;
+
+    activities.forEach((act, i) => {
+      const taskId = `Task_${i+1}`;
+      const label = act.name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      elems.push(`<task id="${taskId}" name="${label}"/>`);
+      shapes.push(`<bpmndi:BPMNShape id="Shape_${taskId}" bpmnElement="${taskId}">
+        <dc:Bounds x="${x}" y="${startY - taskH/2 + eventR}" width="${taskW}" height="${taskH}"/>
+      </bpmndi:BPMNShape>`);
+      const fId = `Flow_${i+1}`;
+      connElems.push(`<sequenceFlow id="${fId}" sourceRef="${prevId}" targetRef="${taskId}"/>`);
+      edges.push(`<bpmndi:BPMNEdge id="Edge_${fId}" bpmnElement="${fId}">
+        <di:waypoint x="${prevX}" y="${startY + eventR}"/>
+        <di:waypoint x="${x}" y="${startY + eventR}"/>
+      </bpmndi:BPMNEdge>`);
+      prevId = taskId; prevX = x + taskW; x += taskW + gapX;
+    });
+
+    elems.push('<endEvent id="EndEvent_1" name="Fin"/>');
+    shapes.push(`<bpmndi:BPMNShape id="Shape_End" bpmnElement="EndEvent_1">
+        <dc:Bounds x="${x}" y="${startY}" width="${eventR*2}" height="${eventR*2}"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="${x-2}" y="${startY+eventR*2+5}" width="26" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>`);
+    const lastF = `Flow_${activities.length+1}`;
+    connElems.push(`<sequenceFlow id="${lastF}" sourceRef="${prevId}" targetRef="EndEvent_1"/>`);
+    edges.push(`<bpmndi:BPMNEdge id="Edge_${lastF}" bpmnElement="${lastF}">
+      <di:waypoint x="${prevX}" y="${startY + eventR}"/>
+      <di:waypoint x="${x}" y="${startY + eventR}"/>
+    </bpmndi:BPMNEdge>`);
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
-             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
              xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
              xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
              targetNamespace="http://bpmn.io/schema/bpmn">
   <process id="Process_1" isExecutable="false">
-    <startEvent id="StartEvent_1" name="Inicio">
-      <outgoing>Flow_1</outgoing>
-    </startEvent>
-    <task id="Task_1" name="Solicitud&#10;Digital">
-      <incoming>Flow_1</incoming>
-      <outgoing>Flow_2</outgoing>
-    </task>
-    <task id="Task_2" name="Validación&#10;Automática">
-      <incoming>Flow_2</incoming>
-      <outgoing>Flow_3</outgoing>
-    </task>
-    <exclusiveGateway id="Gateway_1" name="¿Válido?">
-      <incoming>Flow_3</incoming>
-      <outgoing>Flow_4</outgoing>
-      <outgoing>Flow_5</outgoing>
-    </exclusiveGateway>
-    <task id="Task_3" name="Solicitud&#10;Devuelta">
-      <incoming>Flow_5</incoming>
-      <outgoing>Flow_6</outgoing>
-    </task>
-    <task id="Task_4" name="Aprobación&#10;Unificada">
-      <incoming>Flow_4</incoming>
-      <outgoing>Flow_7</outgoing>
-    </task>
-    <task id="Task_5" name="Orden de&#10;Compra Auto.">
-      <incoming>Flow_7</incoming>
-      <outgoing>Flow_8</outgoing>
-    </task>
-    <endEvent id="EndEvent_1" name="Fin">
-      <incoming>Flow_8</incoming>
-    </endEvent>
-    <sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_1"/>
-    <sequenceFlow id="Flow_2" sourceRef="Task_1" targetRef="Task_2"/>
-    <sequenceFlow id="Flow_3" sourceRef="Task_2" targetRef="Gateway_1"/>
-    <sequenceFlow id="Flow_4" name="Sí" sourceRef="Gateway_1" targetRef="Task_4"/>
-    <sequenceFlow id="Flow_5" name="No" sourceRef="Gateway_1" targetRef="Task_3"/>
-    <sequenceFlow id="Flow_6" sourceRef="Task_3" targetRef="Task_1"/>
-    <sequenceFlow id="Flow_7" sourceRef="Task_4" targetRef="Task_5"/>
-    <sequenceFlow id="Flow_8" sourceRef="Task_5" targetRef="EndEvent_1"/>
+    ${elems.join('\n    ')}
+    ${connElems.join('\n    ')}
   </process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
-      <bpmndi:BPMNShape id="Shape_Start" bpmnElement="StartEvent_1">
-        <dc:Bounds x="82" y="192" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="78" y="235" width="44" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_Task1" bpmnElement="Task_1">
-        <dc:Bounds x="170" y="170" width="110" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_Task2" bpmnElement="Task_2">
-        <dc:Bounds x="340" y="170" width="110" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_GW1" bpmnElement="Gateway_1" isMarkerVisible="true">
-        <dc:Bounds x="515" y="185" width="50" height="50"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="505" y="242" width="70" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_Task3" bpmnElement="Task_3">
-        <dc:Bounds x="500" y="310" width="110" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_Task4" bpmnElement="Task_4">
-        <dc:Bounds x="630" y="170" width="110" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_Task5" bpmnElement="Task_5">
-        <dc:Bounds x="800" y="170" width="110" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_End" bpmnElement="EndEvent_1">
-        <dc:Bounds x="972" y="192" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="977" y="235" width="26" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-
-      <bpmndi:BPMNEdge id="Edge_1" bpmnElement="Flow_1">
-        <di:waypoint x="118" y="210"/><di:waypoint x="170" y="210"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_2" bpmnElement="Flow_2">
-        <di:waypoint x="280" y="210"/><di:waypoint x="340" y="210"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_3" bpmnElement="Flow_3">
-        <di:waypoint x="450" y="210"/><di:waypoint x="515" y="210"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_4" bpmnElement="Flow_4">
-        <di:waypoint x="565" y="210"/><di:waypoint x="630" y="210"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="580" y="192" width="20" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_5" bpmnElement="Flow_5">
-        <di:waypoint x="540" y="235"/><di:waypoint x="540" y="310"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="545" y="265" width="20" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_6" bpmnElement="Flow_6">
-        <di:waypoint x="500" y="350"/><di:waypoint x="225" y="350"/><di:waypoint x="225" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_7" bpmnElement="Flow_7">
-        <di:waypoint x="740" y="210"/><di:waypoint x="800" y="210"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_8" bpmnElement="Flow_8">
-        <di:waypoint x="910" y="210"/><di:waypoint x="972" y="210"/>
-      </bpmndi:BPMNEdge>
+      ${shapes.join('\n      ')}
+      ${edges.join('\n      ')}
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </definitions>`;
+  }
 
-  let bpmnViewer = null;
+  function colorBpmnElements(viewer, activities) {
+    try {
+      const canvas = viewer.get('canvas');
+      const overlays = viewer.get('overlays');
+      activities.forEach((act, i) => {
+        const taskId = `Task_${i+1}`;
+        const isAuto = act.status === 'automatizada';
+        const color = isAuto ? '#00d4aa' : '#64748b';
+        const bg = isAuto ? 'rgba(0,212,170,0.15)' : 'rgba(100,116,139,0.10)';
+        const border = isAuto ? '#00d4aa' : '#64748b';
+        try {
+          const gfx = canvas.getGraphics(taskId);
+          if (gfx) {
+            const rect = gfx.querySelector('rect');
+            if (rect) {
+              rect.style.fill = bg;
+              rect.style.stroke = color;
+              rect.style.strokeWidth = '2px';
+            }
+            const text = gfx.querySelector('text');
+            if (text) text.style.fill = isAuto ? '#00d4aa' : '#e2e8f0';
+          }
+        } catch(e) {}
+        // Badge overlay
+        if (isAuto) {
+          overlays.add(taskId, {
+            position: { top: -14, left: 4 },
+            html: `<div style="background:#00d4aa;color:#0a1628;font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap;letter-spacing:0.04em">⚡ AUTO</div>`
+          });
+        }
+        // Tooltip con herramienta
+        if (act.automation_tool) {
+          overlays.add(taskId, {
+            position: { bottom: -22, left: 0 },
+            html: `<div style="background:#1e293b;color:#94a3b8;font-size:9px;padding:2px 6px;border-radius:3px;white-space:nowrap;border:1px solid #334155;max-width:160px;overflow:hidden;text-overflow:ellipsis">${act.automation_tool}</div>`
+          });
+        }
+      });
+    } catch(e) { console.warn('Color BPMN error:', e); }
+  }
+
+    let bpmnViewer = null;
   let bpmnLoaded = false;
 
   function initBpmn() {
@@ -1855,9 +1866,22 @@
 
     try {
       bpmnViewer = new BpmnJS({ container: '#bpmn-container' });
+      const activities = (window.__lastReport && window.__lastReport.tobe_process && window.__lastReport.tobe_process.activities) ? window.__lastReport.tobe_process.activities : [];
+      const bpmnXml = activities.length > 0 ? generateBpmnXml(activities) : null;
+      if (!bpmnXml) { container.style.display='none'; fallback.style.display='flex'; return; }
       bpmnViewer.importXML(bpmnXml).then(() => {
         const canvas = bpmnViewer.get('canvas');
-        canvas.zoom('fit-viewport');
+        // Esperar a que el contenedor tenga dimensiones reales antes de fit-viewport
+        const tryFit = (attempts = 0) => {
+          const el = document.getElementById('bpmn-container');
+          if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
+            try { canvas.zoom('fit-viewport'); } catch(e) { console.warn('BPMN fit skipped:', e.message); }
+          } else if (attempts < 10) {
+            requestAnimationFrame(() => tryFit(attempts + 1));
+          }
+        };
+        requestAnimationFrame(() => tryFit());
+        requestAnimationFrame(() => colorBpmnElements(bpmnViewer, activities));
         bpmnLoaded = true;
       }).catch(err => {
         console.error('BPMN import error:', err);
@@ -2175,7 +2199,7 @@
               <span class="waste-title">${a.activity_name}${autoBadge}${timeBadge}</span>
             </div>
             <p class="waste-desc">${a.waste_justification || ""}</p>
-            ${a.automation_tool ? `<p class="waste-desc" style="color:#00d4aa;margin-top:4px">💡 ${a.automation_tool}</p>` : ""}
+
           </div>`;
         }).join("");
     }

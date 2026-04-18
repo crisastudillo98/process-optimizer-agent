@@ -548,10 +548,11 @@
     }
     .btn-icon:hover { background: var(--surface-2); border-color: var(--primary); color: var(--primary); }
     #bpmn-container {
-      background: #fff;
+      background: var(--surface);
       border-radius: var(--radius-card);
       border: 1px solid var(--border-med);
       min-height: 500px;
+      height: 500px;
       position: relative;
       overflow: hidden;
     }
@@ -1034,7 +1035,7 @@
 
   <!-- Nav -->
   <nav class="sidebar-nav">
-    <div class="nav-item active" data-section="nuevo" onclick="navigateTo('nuevo', this)">
+    <div class="nav-item active" data-section="nuevo" onclick="navigateTo('nuevo', this); resetAnalysisForm()">
       <!-- Plus icon -->
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 2V14M2 8H14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -1082,6 +1083,10 @@
 
     <div class="form-wrapper">
       <!-- Input type tabs -->
+      <div style="margin-bottom:var(--space-4)">
+        <label class="form-label" for="process-name">Nombre del análisis</label>
+        <input type="text" id="process-name" placeholder="Ej: Proceso de contratación RRHH" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-med);border-radius:var(--radius-input);color:var(--text);font-size:0.9rem;outline:none;" />
+      </div>
       <div class="input-tabs" role="tablist" aria-label="Tipo de entrada">
         <div class="input-tab active" role="tab" aria-selected="true" onclick="switchInputTab('describir', this)">Describir proceso</div>
         <div class="input-tab" role="tab" aria-selected="false" onclick="switchInputTab('subir', this)">Subir documento</div>
@@ -1570,6 +1575,14 @@
   /* =============================================
      MOBILE SIDEBAR
   ============================================= */
+  function resetAnalysisForm() {
+    document.getElementById("process-name").value = "";
+    document.getElementById("process-desc").value = "";
+    document.getElementById("dropzone-filename").textContent = "";
+    switchInputTab("describir", document.querySelector(".input-tab"));
+    document.getElementById("analyze-btn").disabled = false;
+    document.getElementById("btn-text").innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="display:inline;vertical-align:middle;margin-right:6px"><path d="M9 2.25C5.27 2.25 2.25 5.27 2.25 9S5.27 15.75 9 15.75 15.75 12.73 15.75 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 2.25L15.75 2.25V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 6L13.5 2.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> Analizar proceso`;
+  }
   function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
     document.getElementById('sidebar-overlay').classList.toggle('open');
@@ -1875,7 +1888,7 @@
         const tryFit = (attempts = 0) => {
           const el = document.getElementById('bpmn-container');
           if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
-            try { canvas.zoom('fit-viewport'); } catch(e) { console.warn('BPMN fit skipped:', e.message); }
+            try { canvas.zoom('fit-viewport'); canvas.zoom(canvas.zoom() * 0.9); } catch(e) { console.warn('BPMN fit skipped:', e.message); }
           } else if (attempts < 10) {
             requestAnimationFrame(() => tryFit(attempts + 1));
           }
@@ -2199,6 +2212,7 @@
               <span class="waste-title">${a.activity_name}${autoBadge}${timeBadge}</span>
             </div>
             <p class="waste-desc">${a.waste_justification || ""}</p>
+            ${a.automation_tool ? `<p class="waste-desc" style="color:#00d4aa;margin-top:4px">💡 ${a.automation_tool}</p>` : ""}
 
           </div>`;
         }).join("");

@@ -6,11 +6,13 @@ Mantiene historial de conversación en memoria por sesión.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from auth.dependencies import get_current_user
 from llm.factory import get_llm
 from observability.logger import get_logger
+from storage.models import User
 
 logger = get_logger(__name__)
 
@@ -83,7 +85,7 @@ MAX_HISTORY_MESSAGES = 20  # Máximo de mensajes por sesión (para no exceder to
     status_code=status.HTTP_200_OK,
     summary="Chat contextual post-análisis",
 )
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, current_user: User = Depends(get_current_user)):
     """
     Recibe un mensaje del usuario junto con el contexto del análisis.
     Usa Llama 3.3 70B vía Groq para responder como consultor Lean/Six Sigma.
@@ -150,7 +152,7 @@ async def chat(request: ChatRequest):
     tags=["Chat"],
     summary="Limpiar historial de chat",
 )
-async def clear_chat_history(session_id: str):
+async def clear_chat_history(session_id: str, current_user: User = Depends(get_current_user)):
     """Elimina el historial de chat de una sesión."""
     if session_id in _chat_histories:
         del _chat_histories[session_id]
@@ -162,7 +164,7 @@ async def clear_chat_history(session_id: str):
     tags=["Chat"],
     summary="Obtener historial de chat",
 )
-async def get_chat_history(session_id: str):
+async def get_chat_history(session_id: str, current_user: User = Depends(get_current_user)):
     """Retorna el historial completo de chat de una sesión."""
     history = _chat_histories.get(session_id, [])
     return {

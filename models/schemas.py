@@ -2,7 +2,7 @@
 from __future__ import annotations
 from enum import Enum
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
 
 
@@ -427,4 +427,54 @@ class AgentState(BaseModel):
     errors: list[str]                     = Field(default_factory=list)
     current_node: str                     = Field(default="start")
 
+    # Auth — propagated from API layer, not used by LangGraph nodes
+    user_id: Optional[str]   = None
+    tenant_id: Optional[str] = None
+
     model_config = {"arbitrary_types_allowed": True}
+
+
+# ─────────────────────────────────────────────
+# AUTH SCHEMAS
+# ─────────────────────────────────────────────
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    full_name: str = Field(min_length=2)
+    org_name: str = Field(min_length=2)
+    org_slug: str = Field(min_length=2, pattern=r'^[a-z0-9-]+$')
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    role: str
+    tenant_id: str
+    tenant_name: str
+    tenant_slug: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class InviteRequest(BaseModel):
+    email: EmailStr
+    role: str = "member"   # member | admin | viewer

@@ -1,16 +1,19 @@
 from __future__ import annotations
+import json
 import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, status
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import Depends, FastAPI, File, HTTPException, BackgroundTasks, UploadFile, status
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from agent.orchestrator import optimizer_graph, build_graph
 from agent.document_loader import load_document
 from agent.chat_agent import router as chat_router
+from api.auth import router as auth_router
+from auth.dependencies import get_current_user, require_admin
 from models.schemas import (
     AgentState,
     KPIReportV2,
@@ -20,10 +23,11 @@ from models.schemas import (
 )
 from config.settings import settings
 from observability.logger import get_logger
-from storage.database import engine, SessionLocal
+from storage.database import SessionLocal
 from storage import models as db_models
+from storage.models import User
 from storage import repository as repo
-db_models.Base.metadata.create_all(bind=engine)
+# Schema is managed by Alembic — do NOT call create_all here
 
 logger = get_logger(__name__)
 
@@ -51,11 +55,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Chat contextual router
 app.include_router(chat_router)
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
 # ─────────────────────────────────────────────
-# STORE EN MEMORIA (reemplazar por Redis en producción)
+# SESSION STORE  (in-memory; replace with Redis in prod)
 # ─────────────────────────────────────────────
 
 _sessions: dict[str, AgentState] = {}
@@ -68,6 +72,12 @@ def _get_session(session_id: str) -> AgentState:
             detail=f"Sesión '{session_id}' no encontrada.",
         )
     return _sessions[session_id]
+
+
+def _assert_session_owner(state: AgentState, current_user: User) -> None:
+    """Raises 403 if the session belongs to a different user."""
+    if state.user_id and state.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied to this session.")
 
 
 # ─────────────────────────────────────────────
@@ -93,11 +103,8 @@ class AnalyzeTextRequest(BaseModel):
 
 
 class HITLReviewRequest(BaseModel):
-    approved: bool  = Field(..., description="True = aprobado, False = requiere cambios")
-    feedback: str   = Field(
-        default="",
-        description="Comentarios del revisor (requerido si approved=False)",
-    )
+    approved: bool = Field(..., description="True = aprobado, False = requiere cambios")
+    feedback: str  = Field(default="", description="Comentarios del revisor")
 
 
 class SessionResponse(BaseModel):
@@ -121,23 +128,21 @@ class AnalysisStatusResponse(BaseModel):
 
 
 # ─────────────────────────────────────────────
-# HEALTH
+# HEALTH  (public)
 # ─────────────────────────────────────────────
 
 @app.get("/health", tags=["Sistema"])
 async def health_check():
-    """Verifica que el servicio esté activo."""
     return {
-        "status":   "healthy",
-        "version":  "1.0.0",
-        "hitl":     settings.hitl_enabled,
-        "model":    settings.openai_model,
+        "status":  "healthy",
+        "version": "1.0.0",
+        "hitl":    settings.hitl_enabled,
+        "model":   settings.openai_model,
     }
 
 
 @app.get("/health/rag", tags=["Sistema"])
 async def health_rag():
-    """Verifica el estado de la Vector DB."""
     try:
         from rag.vector_store import get_collection_stats
         stats = get_collection_stats()
@@ -163,24 +168,24 @@ async def health_rag():
 async def analyze_text(
     request: AnalyzeTextRequest,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Inicia el análisis de un proceso AS-IS descrito en lenguaje natural.
-    Retorna un session_id para consultar el progreso y los resultados.
-    """
     session_id = str(uuid.uuid4())
     state = AgentState(
         raw_input=request.raw_input,
         current_node="start",
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
     )
     _sessions[session_id] = state
 
-    # Persistir en BD
     with SessionLocal() as db:
-        repo.create_analysis(db, session_id, request.process_name, request.raw_input)
+        repo.create_analysis(
+            db, session_id, request.process_name, request.raw_input,
+            user_id=current_user.id, tenant_id=current_user.tenant_id,
+        )
 
-    logger.info(f"Nueva sesión: {session_id} — input: {len(request.raw_input)} chars")
-
+    logger.info(f"Nueva sesión: {session_id} user={current_user.id} chars={len(request.raw_input)}")
     background_tasks.add_task(_run_pipeline, session_id, request.process_name)
 
     return SessionResponse(
@@ -205,10 +210,8 @@ async def analyze_text(
 async def analyze_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Acepta un archivo PDF, Excel (.xlsx) o texto (.txt) con la descripción del proceso.
-    """
     allowed_extensions = {".pdf", ".xlsx", ".xls", ".txt", ".md", ".json"}
     suffix = Path(file.filename or "").suffix.lower()
 
@@ -221,13 +224,11 @@ async def analyze_file(
             ),
         )
 
-    # Guardar temporalmente
     tmp_dir  = Path("/tmp/process_optimizer")
     tmp_dir.mkdir(parents=True, exist_ok=True)
     tmp_path = tmp_dir / f"{uuid.uuid4().hex}{suffix}"
     tmp_path.write_bytes(await file.read())
 
-    # Extraer texto ya en este punto para validar contenido
     try:
         raw_text = load_document(tmp_path)
     except Exception as e:
@@ -249,14 +250,18 @@ async def analyze_file(
         raw_input=raw_text,
         input_file_path=str(tmp_path),
         current_node="start",
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
     )
     _sessions[session_id] = state
 
-    logger.info(
-        f"Nueva sesión desde archivo: {session_id} — "
-        f"{file.filename} ({len(raw_text)} chars)"
-    )
+    with SessionLocal() as db:
+        repo.create_analysis(
+            db, session_id, file.filename or "uploaded_file", raw_text,
+            user_id=current_user.id, tenant_id=current_user.tenant_id,
+        )
 
+    logger.info(f"Nueva sesión desde archivo: {session_id} {file.filename} ({len(raw_text)} chars)")
     background_tasks.add_task(_run_pipeline, session_id)
 
     return SessionResponse(
@@ -284,10 +289,8 @@ async def _run_pipeline(session_id: str, process_name: str = "Sin nombre") -> No
             config={"configurable": {"thread_id": session_id}},
         )
 
-        # ✅ Guardar solo si invoke retornó resultado válido
         if result and isinstance(result, dict):
             _sessions[session_id] = AgentState(**result)
-            # Persistir resultado completo en BD
             final_state = _sessions[session_id]
             full_report = {
                 "asis_process":   final_state.asis_process.model_dump() if final_state.asis_process else None,
@@ -304,14 +307,10 @@ async def _run_pipeline(session_id: str, process_name: str = "Sin nombre") -> No
             with SessionLocal() as db:
                 repo.fail_analysis(db, session_id, _sessions[session_id].errors)
 
-        logger.info(
-            f"Pipeline completado: {session_id} — "
-            f"nodo final: {_sessions[session_id].current_node}"
-        )
+        logger.info(f"Pipeline completado: {session_id} nodo={_sessions[session_id].current_node}")
 
     except Exception as e:
         logger.error(f"Error en pipeline {session_id}: {e}")
-        # ✅ Verificar que la sesión aún existe antes de mutarla
         if session_id in _sessions:
             _sessions[session_id].errors.append(f"pipeline: {str(e)}")
             _sessions[session_id].current_node = "error"
@@ -329,14 +328,13 @@ async def _run_pipeline(session_id: str, process_name: str = "Sin nombre") -> No
     "/sessions/{session_id}/status",
     response_model=AnalysisStatusResponse,
     tags=["Sesiones"],
-    summary="Consultar estado del análisis",
 )
-async def get_session_status(session_id: str):
-    """
-    Retorna el estado actual del pipeline para una sesión.
-    Úsalo para polling hasta que kpi_ok=true o errors esté poblado.
-    """
+async def get_session_status(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
     state = _get_session(session_id)
+    _assert_session_owner(state, current_user)
     return AnalysisStatusResponse(
         session_id=session_id,
         current_node=state.current_node,
@@ -351,121 +349,88 @@ async def get_session_status(session_id: str):
     )
 
 
-@app.get(
-    "/sessions/{session_id}/process",
-    tags=["Resultados"],
-    summary="Obtener proceso AS-IS extraído",
-)
-async def get_asis_process(session_id: str):
-    """Retorna el proceso AS-IS estructurado extraído del input."""
+@app.get("/sessions/{session_id}/process", tags=["Resultados"])
+async def get_asis_process(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
     state = _get_session(session_id)
+    _assert_session_owner(state, current_user)
     if not state.extraction_ok or state.asis_process is None:
-        raise HTTPException(
-            status_code=status.HTTP_425_TOO_EARLY,
-            detail="El proceso AS-IS aún no está disponible.",
-        )
+        raise HTTPException(status_code=425, detail="El proceso AS-IS aún no está disponible.")
     return state.asis_process.model_dump()
 
 
-@app.get(
-    "/sessions/{session_id}/analysis",
-    tags=["Resultados"],
-    summary="Obtener análisis de desperdicios Lean",
-)
-async def get_waste_analysis(session_id: str):
-    """Retorna el análisis completo de Muda, redundancias y oportunidades."""
+@app.get("/sessions/{session_id}/analysis", tags=["Resultados"])
+async def get_waste_analysis(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
     state = _get_session(session_id)
+    _assert_session_owner(state, current_user)
     if not state.analysis_ok or state.waste_analysis is None:
-        raise HTTPException(
-            status_code=status.HTTP_425_TOO_EARLY,
-            detail="El análisis Lean aún no está disponible.",
-        )
+        raise HTTPException(status_code=425, detail="El análisis Lean aún no está disponible.")
     return state.waste_analysis.model_dump()
 
 
-@app.get(
-    "/sessions/{session_id}/tobe",
-    tags=["Resultados"],
-    summary="Obtener propuesta TO-BE optimizada",
-)
-async def get_tobe_process(session_id: str):
-    """Retorna la propuesta de proceso optimizado TO-BE."""
+@app.get("/sessions/{session_id}/tobe", tags=["Resultados"])
+async def get_tobe_process(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
     state = _get_session(session_id)
+    _assert_session_owner(state, current_user)
     if not state.optimization_ok or state.tobe_process is None:
-        raise HTTPException(
-            status_code=status.HTTP_425_TOO_EARLY,
-            detail="La propuesta TO-BE aún no está disponible.",
-        )
+        raise HTTPException(status_code=425, detail="La propuesta TO-BE aún no está disponible.")
     return state.tobe_process.model_dump()
 
 
-@app.get(
-    "/sessions/{session_id}/kpis",
-    tags=["Resultados"],
-    summary="Obtener reporte de KPIs",
-)
-async def get_kpi_report(session_id: str):
-    """Retorna el reporte completo de KPIs AS-IS vs TO-BE con ROI y nivel Sigma."""
+@app.get("/sessions/{session_id}/kpis", tags=["Resultados"])
+async def get_kpi_report(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
     state = _get_session(session_id)
+    _assert_session_owner(state, current_user)
     if not state.kpi_ok or state.kpi_report is None:
-        raise HTTPException(
-            status_code=status.HTTP_425_TOO_EARLY,
-            detail="El reporte de KPIs aún no está disponible.",
-        )
+        raise HTTPException(status_code=425, detail="El reporte de KPIs aún no está disponible.")
     return state.kpi_report.model_dump()
 
 
-@app.get(
-    "/sessions/{session_id}/bpmn",
-    tags=["Resultados"],
-    summary="Descargar diagrama BPMN 2.0",
-    response_class=FileResponse,
-)
-async def download_bpmn(session_id: str):
-    """Descarga el archivo .bpmn XML 2.0 del proceso TO-BE."""
+@app.get("/sessions/{session_id}/bpmn", tags=["Resultados"], response_class=FileResponse)
+async def download_bpmn(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
     state = _get_session(session_id)
+    _assert_session_owner(state, current_user)
     if not state.bpmn_ok or state.bpmn_output is None:
-        raise HTTPException(
-            status_code=status.HTTP_425_TOO_EARLY,
-            detail="El diagrama BPMN aún no está disponible.",
-        )
+        raise HTTPException(status_code=425, detail="El diagrama BPMN aún no está disponible.")
     file_path = Path(state.bpmn_output.file_path)
     if not file_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Archivo BPMN no encontrado en el servidor.",
-        )
-    return FileResponse(
-        path=str(file_path),
-        media_type="application/xml",
-        filename=file_path.name,
-    )
+        raise HTTPException(status_code=404, detail="Archivo BPMN no encontrado en el servidor.")
+    return FileResponse(path=str(file_path), media_type="application/xml", filename=file_path.name)
 
 
-@app.get(
-    "/sessions/{session_id}/report",
-    tags=["Resultados"],
-    summary="Obtener reporte completo del análisis",
-)
-async def get_full_report(session_id: str):
-    """
-    Retorna el reporte completo: AS-IS + análisis + TO-BE + KPIs en un solo response.
-    Solo disponible cuando kpi_ok=true.
-    """
+@app.get("/sessions/{session_id}/report", tags=["Resultados"])
+async def get_full_report(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
     state = _get_session(session_id)
+    _assert_session_owner(state, current_user)
     if not state.kpi_ok:
         raise HTTPException(
-            status_code=status.HTTP_425_TOO_EARLY,
-            detail="El análisis completo aún no está disponible. "
-                   "Consulta /sessions/{session_id}/status para ver el progreso.",
+            status_code=425,
+            detail="El análisis completo aún no está disponible.",
         )
     return {
-        "session_id":    session_id,
-        "asis_process":  state.asis_process.model_dump() if state.asis_process else None,
+        "session_id":     session_id,
+        "asis_process":   state.asis_process.model_dump() if state.asis_process else None,
         "waste_analysis": state.waste_analysis.model_dump() if state.waste_analysis else None,
-        "tobe_process":  state.tobe_process.model_dump() if state.tobe_process else None,
-        "kpi_report":    state.kpi_report.model_dump() if state.kpi_report else None,
-        "bpmn_file":     state.bpmn_output.file_path if state.bpmn_output else None,
+        "tobe_process":   state.tobe_process.model_dump() if state.tobe_process else None,
+        "kpi_report":     state.kpi_report.model_dump() if state.kpi_report else None,
+        "bpmn_file":      state.bpmn_output.file_path if state.bpmn_output else None,
     }
 
 
@@ -473,48 +438,34 @@ async def get_full_report(session_id: str):
 # HITL — REVISIÓN HUMANA
 # ─────────────────────────────────────────────
 
-@app.post(
-    "/sessions/{session_id}/review",
-    response_model=SessionResponse,
-    tags=["HITL"],
-    summary="Aprobar o rechazar la propuesta TO-BE",
-)
+@app.post("/sessions/{session_id}/review", response_model=SessionResponse, tags=["HITL"])
 async def submit_hitl_review(
     session_id: str,
     review: HITLReviewRequest,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Endpoint de revisión humana (Human-in-the-Loop).
-    - approved=true: continúa con la generación BPMN y KPIs
-    - approved=false: re-optimiza con el feedback del revisor
-    """
     state = _get_session(session_id)
+    _assert_session_owner(state, current_user)
 
     if not state.hitl_required:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Esta sesión no tiene una revisión humana pendiente.",
-        )
+        raise HTTPException(status_code=400, detail="Esta sesión no tiene una revisión humana pendiente.")
 
     if not review.approved and not review.feedback.strip():
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail="Si el TO-BE es rechazado, debes proporcionar feedback para re-optimizar.",
         )
 
-    # Inyectar decisión del revisor al estado
-    state.hitl_approved  = review.approved
-    state.hitl_feedback  = review.feedback or None
-    state.hitl_required  = False
+    state.hitl_approved = review.approved
+    state.hitl_feedback = review.feedback or None
+    state.hitl_required = False
 
     if review.approved and state.tobe_process:
-        state.tobe_process.human_approved  = True
-        state.tobe_process.approver_notes  = review.feedback or None
+        state.tobe_process.human_approved = True
+        state.tobe_process.approver_notes = review.feedback or None
 
     _sessions[session_id] = state
-
-    # Reanudar el grafo desde el nodo hitl_review
     background_tasks.add_task(_resume_pipeline, session_id)
 
     action = "aprobado" if review.approved else "rechazado — re-optimizando"
@@ -529,10 +480,6 @@ async def submit_hitl_review(
 
 
 async def _resume_pipeline(session_id: str) -> None:
-    """
-    Reanuda el grafo LangGraph después de la aprobación/rechazo HITL.
-    LangGraph usa el thread_id para restaurar el estado del checkpoint.
-    """
     state = _sessions[session_id]
     try:
         result = optimizer_graph.invoke(
@@ -550,62 +497,39 @@ async def _resume_pipeline(session_id: str) -> None:
 # RAG — ADMINISTRACIÓN
 # ─────────────────────────────────────────────
 
-@app.post(
-    "/rag/seed",
-    tags=["RAG"],
-    summary="Inicializar knowledge base Lean/Six Sigma",
-)
-async def seed_knowledge_base():
-    """
-    Inicializa la knowledge base con patrones Lean, Six Sigma y Kaizen.
-    Ejecutar UNA SOLA VEZ al desplegar el sistema por primera vez.
-    """
+@app.post("/rag/seed", tags=["RAG"])
+async def seed_knowledge_base(current_user: User = Depends(require_admin)):
     try:
         from rag.seed_knowledge import seed
         seed()
         from rag.vector_store import get_collection_stats
         stats = get_collection_stats()
-        return {
-            "message": "Knowledge base inicializada correctamente.",
-            "stats":   stats,
-        }
+        return {"message": "Knowledge base inicializada correctamente.", "stats": stats}
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al inicializar knowledge base: {str(e)}",
-        )
+        raise HTTPException(status_code=500, detail=f"Error al inicializar knowledge base: {str(e)}")
 
 
-@app.get(
-    "/rag/stats",
-    tags=["RAG"],
-    summary="Estadísticas de la Vector DB",
-)
+@app.get("/rag/stats", tags=["RAG"])
 async def rag_stats():
-    """Retorna el número de documentos indexados en cada colección."""
     try:
         from rag.vector_store import get_collection_stats
         return get_collection_stats()
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(e),
-        )
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 # ─────────────────────────────────────────────
 # HISTORIAL — ANÁLISIS PERSISTIDOS
 # ─────────────────────────────────────────────
 
-@app.get(
-    "/analyses",
-    tags=["Historial"],
-    summary="Listar historial de análisis persistidos",
-)
-async def list_analyses(limit: int = 50, offset: int = 0):
-    """Retorna el historial de análisis guardados en BD, ordenados por fecha descendente."""
+@app.get("/analyses", tags=["Historial"])
+async def list_analyses(
+    limit: int = 50,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+):
     with SessionLocal() as db:
-        records = repo.list_analyses(db, limit=limit, offset=offset)
+        records = repo.list_analyses(db, limit=limit, offset=offset, user_id=current_user.id)
     return {
         "total": len(records),
         "analyses": [
@@ -625,18 +549,15 @@ async def list_analyses(limit: int = 50, offset: int = 0):
     }
 
 
-@app.get(
-    "/analyses/{session_id}",
-    tags=["Historial"],
-    summary="Obtener análisis completo desde BD",
-)
-async def get_analysis(session_id: str):
-    """Retorna el resultado completo de un análisis persistido en BD."""
+@app.get("/analyses/{session_id}", tags=["Historial"])
+async def get_analysis(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
     with SessionLocal() as db:
-        record = repo.get_analysis(db, session_id)
+        record = repo.get_analysis(db, session_id, user_id=current_user.id)
     if not record:
         raise HTTPException(status_code=404, detail=f"Análisis '{session_id}' no encontrado.")
-    import json
     return {
         "id":           record.id,
         "process_name": record.process_name,
@@ -650,27 +571,25 @@ async def get_analysis(session_id: str):
 # SESIONES — LIMPIEZA
 # ─────────────────────────────────────────────
 
-@app.delete(
-    "/sessions/{session_id}",
-    tags=["Sesiones"],
-    summary="Eliminar sesión",
-)
-async def delete_session(session_id: str):
-    """Elimina una sesión y libera memoria."""
-    _get_session(session_id)   # Valida que existe
+@app.delete("/sessions/{session_id}", tags=["Sesiones"])
+async def delete_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    state = _get_session(session_id)
+    _assert_session_owner(state, current_user)
     del _sessions[session_id]
     return {"message": f"Sesión '{session_id}' eliminada."}
 
 
-@app.get(
-    "/sessions",
-    tags=["Sesiones"],
-    summary="Listar sesiones activas",
-)
-async def list_sessions():
-    """Lista todas las sesiones activas con su estado actual."""
+@app.get("/sessions", tags=["Sesiones"])
+async def list_sessions(current_user: User = Depends(get_current_user)):
+    user_sessions = {
+        sid: s for sid, s in _sessions.items()
+        if not s.user_id or s.user_id == current_user.id
+    }
     return {
-        "total": len(_sessions),
+        "total": len(user_sessions),
         "sessions": [
             {
                 "session_id":   sid,
@@ -678,6 +597,6 @@ async def list_sessions():
                 "kpi_ok":       s.kpi_ok,
                 "errors":       len(s.errors),
             }
-            for sid, s in _sessions.items()
+            for sid, s in user_sessions.items()
         ],
     }

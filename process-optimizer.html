@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Process Optimizer Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Instrument Serif', Georgia, serif;
+      --font-body: 'Inter', sans-serif;
+      --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+      --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+      --text-2xl: clamp(2rem, 1.2rem + 2.5vw, 3.5rem);
+      --space-1:.25rem;--space-2:.5rem;--space-3:.75rem;--space-4:1rem;--space-5:1.25rem;
+      --space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;--space-12:3rem;--space-16:4rem;
+      --radius-sm:.375rem;--radius-md:.5rem;--radius-lg:.75rem;--radius-xl:1rem;--radius-full:9999px;
+      --transition:180ms cubic-bezier(0.16,1,0.3,1);
+    }
+    [data-theme="dark"] {
+      --bg:#0f1117;--surface:#161b27;--surface-2:#1c2333;--surface-3:#232d42;
+      --border:rgba(255,255,255,0.08);--text:#e2e8f0;--text-muted:#8892a4;--text-faint:#4a5568;
+      --primary:#4f9eff;--primary-hover:#3b8ef0;--primary-glow:rgba(79,158,255,0.15);
+      --success:#34d399;--success-bg:rgba(52,211,153,0.1);
+      --warning:#fbbf24;--warning-bg:rgba(251,191,36,0.1);
+      --error:#f87171;--error-bg:rgba(248,113,113,0.1);
+      --shadow-sm:0 1px 3px rgba(0,0,0,0.4);--shadow-md:0 4px 16px rgba(0,0,0,0.5);--shadow-lg:0 12px 40px rgba(0,0,0,0.6);
+    }
+    [data-theme="light"] {
+      --bg:#f7f8fc;--surface:#ffffff;--surface-2:#f1f4f9;--surface-3:#e8ecf4;
+      --border:rgba(0,0,0,0.08);--text:#1a202c;--text-muted:#4a5568;--text-faint:#a0aec0;
+      --primary:#2563eb;--primary-hover:#1d4ed8;--primary-glow:rgba(37,99,235,0.12);
+      --success:#059669;--success-bg:rgba(5,150,105,0.08);
+      --warning:#d97706;--warning-bg:rgba(217,119,6,0.08);
+      --error:#dc2626;--error-bg:rgba(220,38,38,0.08);
+      --shadow-sm:0 1px 3px rgba(0,0,0,0.08);--shadow-md:0 4px 16px rgba(0,0,0,0.1);--shadow-lg:0 12px 40px rgba(0,0,0,0.15);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;}
+    body{font-family:var(--font-body);font-size:var(--text-base);color:var(--text);background:var(--bg);min-height:100dvh;transition:background var(--transition),color var(--transition);}
+    img{display:block;max-width:100%;}
+    button{cursor:pointer;font:inherit;border:none;background:none;}
+    input,textarea,select{font:inherit;}
+    .app{display:grid;grid-template-columns:280px 1fr;min-height:100dvh;}
+    @media(max-width:768px){.app{grid-template-columns:1fr;}}
+
+    /* SIDEBAR */
+    .sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:var(--space-6);position:sticky;top:0;height:100dvh;overflow-y:auto;}
+    .sidebar-logo{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-8);}
+    .logo-icon{width:36px;height:36px;flex-shrink:0;background:linear-gradient(135deg,var(--primary),#7c3aed);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;}
+    .logo-icon svg{width:20px;height:20px;color:#fff;}
+    .logo-text{font-family:var(--font-display);font-size:var(--text-lg);color:var(--text);line-height:1.2;}
+    .logo-text span{display:block;font-size:var(--text-xs);font-family:var(--font-body);color:var(--text-muted);font-style:normal;}
+    .sidebar-section-label{font-size:var(--text-xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin-bottom:var(--space-2);padding:0 var(--space-2);}
+    .sessions-list{flex:1;display:flex;flex-direction:column;gap:var(--space-1);margin-bottom:var(--space-6);}
+    .session-item{padding:var(--space-3);border-radius:var(--radius-md);cursor:pointer;transition:background var(--transition);border:1px solid transparent;}
+    .session-item:hover{background:var(--surface-2);}
+    .session-item.active{background:var(--primary-glow);border-color:var(--primary);}
+    .session-item-name{font-size:var(--text-sm);font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .session-item-meta{font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:4px;}
+    .status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+    .status-dot.running{background:var(--warning);animation:pulse 2s infinite;}
+    .status-dot.completed{background:var(--success);}
+    .status-dot.pending_review{background:var(--primary);animation:pulse 2s infinite;}
+    .status-dot.error{background:var(--error);}
+    .status-dot.pending{background:var(--text-faint);}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .btn-new-session{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);background:var(--primary);color:#fff;border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:500;transition:background var(--transition),box-shadow var(--transition);margin-bottom:var(--space-4);}
+    .btn-new-session:hover{background:var(--primary-hover);box-shadow:0 0 0 3px var(--primary-glow);}
+    .sidebar-footer{margin-top:auto;padding-top:var(--space-4);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .theme-toggle{padding:var(--space-2);border-radius:var(--radius-md);color:var(--text-muted);transition:background var(--transition),color var(--transition);}
+    .theme-toggle:hover{background:var(--surface-2);color:var(--text);}
+    .api-status{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-xs);color:var(--text-muted);}
+
+    /* MAIN */
+    .main{display:flex;flex-direction:column;overflow:hidden;}
+
+    /* WELCOME */
+    .welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:var(--space-12) var(--space-8);text-align:center;}
+    .welcome-icon{font-size:3rem;margin-bottom:var(--space-6);opacity:.6;}
+    .welcome h1{font-family:var(--font-display);font-size:var(--text-2xl);color:var(--text);margin-bottom:var(--space-4);line-height:1.2;}
+    .welcome h1 em{font-style:italic;color:var(--primary);}
+    .welcome p{font-size:var(--text-base);color:var(--text-muted);max-width:48ch;margin-bottom:var(--space-8);line-height:1.7;}
+    .welcome-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4);max-width:640px;width:100%;}
+    @media(max-width:600px){.welcome-cards{grid-template-columns:1fr;}}
+    .welcome-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-5);text-align:left;}
+    .welcome-card-icon{font-size:1.5rem;margin-bottom:var(--space-3);}
+    .welcome-card h3{font-size:var(--text-sm);font-weight:600;color:var(--text);margin-bottom:var(--space-1);}
+    .welcome-card p{font-size:var(--text-xs);color:var(--text-muted);line-height:1.5;}
+
+    /* SESSION VIEW */
+    .session-view{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+    .session-header{padding:var(--space-5) var(--space-8);border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);}
+    .session-title{font-family:var(--font-display);font-size:var(--text-lg);color:var(--text);}
+    .session-badges{display:flex;gap:var(--space-2);flex-wrap:wrap;}
+    .badge{display:inline-flex;align-items:center;gap:var(--space-1);padding:var(--space-1) var(--space-3);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;}
+    .badge-blue{background:var(--primary-glow);color:var(--primary);}
+    .badge-green{background:var(--success-bg);color:var(--success);}
+    .badge-yellow{background:var(--warning-bg);color:var(--warning);}
+    .badge-red{background:var(--error-bg);color:var(--error);}
+    .session-content{flex:1;overflow-y:auto;padding:var(--space-8);display:flex;flex-direction:column;gap:var(--space-6);}
+
+    /* INPUT PANEL */
+    .input-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-6);}
+    .input-panel h2{font-size:var(--text-base);font-weight:600;color:var(--text);margin-bottom:var(--space-5);}
+    .input-tabs{display:flex;gap:var(--space-1);background:var(--surface-2);padding:var(--space-1);border-radius:var(--radius-md);margin-bottom:var(--space-5);width:fit-content;}
+    .input-tab{padding:var(--space-2) var(--space-4);border-radius:calc(var(--radius-md) - 2px);font-size:var(--text-sm);font-weight:500;color:var(--text-muted);transition:all var(--transition);}
+    .input-tab.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm);}
+    .input-tab:hover:not(.active){color:var(--text);}
+    textarea.process-input{width:100%;min-height:160px;padding:var(--space-4);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-lg);color:var(--text);font-size:var(--text-sm);line-height:1.7;resize:vertical;transition:border-color var(--transition),box-shadow var(--transition);}
+    textarea.process-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow);}
+    textarea.process-input::placeholder{color:var(--text-faint);}
+    .file-drop{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:var(--space-12) var(--space-8);text-align:center;cursor:pointer;transition:border-color var(--transition),background var(--transition);display:none;}
+    .file-drop.active-tab{display:block;}
+    .file-drop:hover,.file-drop.drag-over{border-color:var(--primary);background:var(--primary-glow);}
+    .file-drop-icon{font-size:2.5rem;margin-bottom:var(--space-3);opacity:.5;}
+    .file-drop p{font-size:var(--text-sm);color:var(--text-muted);}
+    .file-drop strong{color:var(--primary);}
+    .file-drop input[type="file"]{display:none;}
+    .file-selected{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);background:var(--success-bg);border-radius:var(--radius-md);margin-top:var(--space-3);}
+    .file-selected-name{font-size:var(--text-sm);font-weight:500;color:var(--success);}
+    .input-footer{display:flex;align-items:center;justify-content:space-between;margin-top:var(--space-5);flex-wrap:wrap;gap:var(--space-3);}
+    .process-name-input{flex:1;min-width:200px;padding:var(--space-2) var(--space-4);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-size:var(--text-sm);transition:border-color var(--transition);}
+    .process-name-input:focus{outline:none;border-color:var(--primary);}
+    .btn-analyze{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-6);background:var(--primary);color:#fff;border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:600;transition:background var(--transition),box-shadow var(--transition),transform var(--transition);}
+    .btn-analyze:hover:not(:disabled){background:var(--primary-hover);box-shadow:0 0 0 3px var(--primary-glow);}
+    .btn-analyze:active:not(:disabled){transform:scale(.98);}
+    .btn-analyze:disabled{opacity:.5;cursor:not-allowed;}
+
+    /* PROGRESS */
+    .progress-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-6);}
+    .progress-panel h2{font-size:var(--text-base);font-weight:600;color:var(--text);margin-bottom:var(--space-5);}
+    .progress-steps{display:flex;flex-direction:column;gap:var(--space-3);}
+    .progress-step{display:flex;align-items:center;gap:var(--space-4);}
+    .step-indicator{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:var(--text-xs);font-weight:700;flex-shrink:0;transition:all var(--transition);}
+    .step-indicator.pending{background:var(--surface-2);color:var(--text-faint);border:2px solid var(--border);}
+    .step-indicator.running{background:var(--warning-bg);color:var(--warning);border:2px solid var(--warning);animation:pulse 1.5s infinite;}
+    .step-indicator.done{background:var(--success-bg);color:var(--success);border:2px solid var(--success);}
+    .step-indicator.error{background:var(--error-bg);color:var(--error);border:2px solid var(--error);}
+    .step-info{flex:1;}
+    .step-name{font-size:var(--text-sm);font-weight:500;color:var(--text);}
+    .step-desc{font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;}
+
+    /* HITL */
+    .hitl-panel{background:var(--surface);border:2px solid var(--primary);border-radius:var(--radius-xl);padding:var(--space-6);box-shadow:0 0 24px var(--primary-glow);}
+    .hitl-header{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-5);}
+    .hitl-badge{padding:var(--space-1) var(--space-3);background:var(--primary-glow);color:var(--primary);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:700;letter-spacing:.05em;text-transform:uppercase;animation:pulse 2s infinite;}
+    .hitl-panel h2{font-size:var(--text-base);font-weight:600;color:var(--text);}
+    .tobe-preview{background:var(--surface-2);border-radius:var(--radius-lg);padding:var(--space-5);margin-bottom:var(--space-5);max-height:300px;overflow-y:auto;}
+    .tobe-activity{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--border);}
+    .tobe-activity:last-child{border-bottom:none;}
+    .activity-type{padding:var(--space-1) var(--space-2);border-radius:var(--radius-sm);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;flex-shrink:0;}
+    .type-conservada,.type-keep{background:var(--success-bg);color:var(--success);}
+    .type-automatizada,.type-automate{background:var(--primary-glow);color:var(--primary);}
+    .type-eliminada,.type-eliminate{background:var(--error-bg);color:var(--error);}
+    .type-combinada,.type-combine,.type-optimizada{background:var(--warning-bg);color:var(--warning);}
+    .activity-info{flex:1;}
+    .activity-name{font-size:var(--text-sm);font-weight:500;color:var(--text);}
+    .activity-reason{font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;line-height:1.5;}
+    .hitl-feedback{margin-bottom:var(--space-4);}
+    .hitl-feedback label{display:block;font-size:var(--text-sm);font-weight:500;color:var(--text-muted);margin-bottom:var(--space-2);}
+    .hitl-feedback textarea{width:100%;padding:var(--space-3) var(--space-4);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-size:var(--text-sm);resize:vertical;min-height:80px;transition:border-color var(--transition);}
+    .hitl-feedback textarea:focus{outline:none;border-color:var(--primary);}
+    .hitl-actions{display:flex;gap:var(--space-3);flex-wrap:wrap;}
+    .btn-approve{flex:1;padding:var(--space-3) var(--space-5);background:var(--success);color:#fff;border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:600;display:flex;align-items:center;justify-content:center;gap:var(--space-2);transition:opacity var(--transition);}
+    .btn-approve:hover{opacity:.85;}
+    .btn-reject{flex:1;padding:var(--space-3) var(--space-5);background:var(--error-bg);color:var(--error);border:1px solid var(--error);border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:600;display:flex;align-items:center;justify-content:center;gap:var(--space-2);transition:opacity var(--transition);}
+    .btn-reject:hover{opacity:.75;}
+
+    /* RESULTS */
+    .results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--space-4);}
+    .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-6);}
+    .kpi-label{font-size:var(--text-xs);font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:var(--space-2);}
+    .kpi-value{font-family:var(--font-display);font-size:var(--text-xl);color:var(--text);line-height:1;margin-bottom:var(--space-1);}
+    .kpi-value.green{color:var(--success);}
+    .kpi-value.blue{color:var(--primary);}
+    .kpi-desc{font-size:var(--text-xs);color:var(--text-muted);}
+    .result-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-6);}
+    .result-panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-5);}
+    .result-panel h2{font-size:var(--text-base);font-weight:600;color:var(--text);}
+    .btn-download{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--text-muted);font-weight:500;transition:all var(--transition);}
+    .btn-download:hover{border-color:var(--primary);color:var(--primary);}
+
+    /* SPINNER / TOAST */
+    .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .toast-container{position:fixed;bottom:var(--space-6);right:var(--space-6);display:flex;flex-direction:column;gap:var(--space-2);z-index:1000;}
+    .toast{padding:var(--space-3) var(--space-5);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);font-size:var(--text-sm);color:var(--text);box-shadow:var(--shadow-lg);animation:slideIn .3s ease;max-width:360px;}
+    .toast.success{border-color:var(--success);}
+    .toast.error{border-color:var(--error);}
+    @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+    .hidden{display:none!important;}
+    @media(max-width:768px){
+      .sidebar{position:fixed;bottom:0;left:0;right:0;height:auto;flex-direction:row;padding:var(--space-3);border-right:none;border-top:1px solid var(--border);z-index:100;}
+      .sidebar-logo,.sessions-list,.sidebar-section-label{display:none;}
+      .sidebar-footer{margin-top:0;padding-top:0;border-top:none;width:100%;}
+      .btn-new-session{margin-bottom:0;flex:1;justify-content:center;}
+      .session-content{padding:var(--space-4);}
+      .session-header{padding:var(--space-4);}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div class="logo-text">Process Optimizer<span>Lean · Six Sigma · AI</span></div>
+    </div>
+    <button class="btn-new-session" onclick="newSession()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nuevo análisis
+    </button>
+    <div class="sidebar-section-label">Sesiones</div>
+    <div class="sessions-list" id="sessionsList">
+      <div style="font-size:var(--text-xs);color:var(--text-faint);padding:var(--space-3) var(--space-2);">Aún no hay sesiones.</div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="api-status">
+        <div class="status-dot pending" id="apiDot"></div>
+        <span id="apiStatusText">Conectando...</span>
+      </div>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Cambiar tema">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="themeIcon">
+          <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main" id="mainArea">
+    <div class="welcome" id="welcomeState">
+      <div class="welcome-icon">⚙️</div>
+      <h1>Optimiza tus procesos con <em>inteligencia artificial</em></h1>
+      <p>Describe cualquier proceso empresarial y el agente identificará desperdicios, propondrá mejoras y generará un diagrama BPMN listo para implementar.</p>
+      <div class="welcome-cards">
+        <div class="welcome-card"><div class="welcome-card-icon">🔍</div><h3>Análisis AS-IS</h3><p>Identifica actividades, tiempos y responsables del proceso actual.</p></div>
+        <div class="welcome-card"><div class="welcome-card-icon">✨</div><h3>Propuesta TO-BE</h3><p>Elimina desperdicios Lean y propone automatizaciones con justificación técnica.</p></div>
+        <div class="welcome-card"><div class="welcome-card-icon">📊</div><h3>KPIs & BPMN</h3><p>Métricas de impacto cuantificadas y diagrama listo para implementar.</p></div>
+      </div>
+      <button class="btn-analyze" style="margin-top:var(--space-8)" onclick="newSession()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Crear primer análisis
+      </button>
+    </div>
+    <div class="session-view hidden" id="sessionView">
+      <div class="session-header">
+        <div class="session-title" id="sessionTitle">Nuevo análisis</div>
+        <div class="session-badges" id="sessionBadges"></div>
+      </div>
+      <div class="session-content" id="sessionContent"></div>
+    </div>
+  </main>
+</div>
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const API = 'https://process-optimizer-app--w40j156.yellowforest-86835751.eastus.azurecontainerapps.io';
+let sessions = {}, currentSessionId = null, pollingInterval = null, activeTab = 'text', selectedFile = null;
+
+function toggleTheme(){
+  const html=document.documentElement, isDark=html.getAttribute('data-theme')==='dark';
+  html.setAttribute('data-theme',isDark?'light':'dark');
+  document.getElementById('themeIcon').innerHTML=isDark
+    ?'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+    :'<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>';
+}
+
+function showToast(msg,type='info'){
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;t.textContent=msg;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(()=>t.remove(),4000);
+}
+
+async function checkHealth(){
+  try{
+    const r=await fetch(`${API}/health`),d=await r.json();
+    if(d.status==='healthy'){
+      document.getElementById('apiDot').style.background='var(--success)';
+      document.getElementById('apiStatusText').textContent='API conectada';
+    }
+  }catch{
+    document.getElementById('apiDot').style.background='var(--error)';
+    document.getElementById('apiStatusText').textContent='Sin conexión';
+  }
+}
+
+function newSession(){
+  const id='session_'+Date.now();
+  sessions[id]={id,name:'Nuevo análisis',status:'new',data:{}};
+  currentSessionId=id;
+  renderSessionsList();renderSessionView();
+}
+
+function selectSession(id){currentSessionId=id;renderSessionsList();renderSessionView();}
+
+function renderSessionsList(){
+  const list=document.getElementById('sessionsList'),ids=Object.keys(sessions);
+  if(!ids.length){list.innerHTML='<div style="font-size:var(--text-xs);color:var(--text-faint);padding:var(--space-3) var(--space-2);">Aún no hay sesiones.</div>';return;}
+  const map={new:['pending','Nueva'],running:['running','Analizando...'],pending_review:['pending_review','Revisión HITL'],completed:['completed','Completado'],error:['error','Error']};
+  list.innerHTML=ids.map(id=>{
+    const s=sessions[id],isActive=id===currentSessionId,[dotClass,label]=map[s.status]||['pending',s.status];
+    return `<div class="session-item ${isActive?'active':''}" onclick="selectSession('${id}')">
+      <div class="session-item-name">${s.name}</div>
+      <div class="session-item-meta"><div class="status-dot ${dotClass}"></div>${label}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderSessionView(){
+  const s=sessions[currentSessionId];
+  document.getElementById('welcomeState').classList.add('hidden');
+  document.getElementById('sessionView').classList.remove('hidden');
+  document.getElementById('sessionTitle').textContent=s.name;
+  updateBadges(s);
+  const content=document.getElementById('sessionContent');
+  if(s.status==='new') content.innerHTML=renderInputPanel();
+  else if(s.status==='running') {content.innerHTML=renderProgressPanel(s)+renderInputPanel(true);startPolling();}
+  else if(s.status==='pending_review') content.innerHTML=renderProgressPanel(s)+renderHITLPanel(s);
+  else if(s.status==='completed') content.innerHTML=renderProgressPanel(s)+renderResultsPanel(s);
+  else if(s.status==='error') {content.innerHTML=`<div class="result-panel"><p style="color:var(--error)">⚠️ Error durante el análisis. Intenta de nuevo.</p></div>`+renderInputPanel();}
+  initInputPanel();
+}
+
+function updateBadges(s){
+  const map={new:'<span class="badge badge-blue">Nueva sesión</span>',running:'<span class="badge badge-yellow">⚡ Analizando</span>',pending_review:'<span class="badge badge-blue">👁 HITL — Revisión requerida</span>',completed:'<span class="badge badge-green">✅ Completado</span>',error:'<span class="badge badge-red">⚠️ Error</span>'};
+  document.getElementById('sessionBadges').innerHTML=map[s.status]||'';
+}
+
+function renderInputPanel(disabled=false){
+  return `<div class="input-panel" id="inputPanel">
+    <h2>📋 Describe el proceso</h2>
+    <div class="input-tabs">
+      <button class="input-tab ${activeTab==='text'?'active':''}" onclick="switchTab('text',event)">✏️ Texto libre</button>
+      <button class="input-tab ${activeTab==='file'?'active':''}" onclick="switchTab('file',event)">📎 Archivo</button>
+    </div>
+    <textarea class="process-input" id="processText" placeholder="Ej: El proceso de facturación comienza cuando el cliente aprueba el pedido. El vendedor elabora la factura en Excel (30 min), la envía por correo y espera aprobación del gerente (2 días)..." ${disabled?'disabled':''}></textarea>
+    <div class="file-drop ${activeTab==='file'?'active-tab':''}" id="fileDrop" onclick="document.getElementById('fileInput').click()">
+      <div class="file-drop-icon">📁</div>
+      <p>Arrastra tu archivo aquí o <strong>haz clic para seleccionar</strong></p>
+      <p style="margin-top:var(--space-2);font-size:var(--text-xs);">PDF, Excel (.xlsx) o TXT — Máx 10MB</p>
+      <input type="file" id="fileInput" accept=".pdf,.xlsx,.xls,.txt" onchange="handleFileSelect(event)">
+      <div id="fileSelectedInfo"></div>
+    </div>
+    <div class="input-footer">
+      <input type="text" class="process-name-input" id="processName" placeholder="Nombre del proceso (ej: Facturación)" ${disabled?'disabled':''}>
+      <button class="btn-analyze" id="btnAnalyze" onclick="startAnalysis()" ${disabled?'disabled':''}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Analizar proceso
+      </button>
+    </div>
+  </div>`;
+}
+
+function initInputPanel(){
+  const drop=document.getElementById('fileDrop');if(!drop)return;
+  drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('drag-over');});
+  drop.addEventListener('dragleave',()=>drop.classList.remove('drag-over'));
+  drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)setFile(f);});
+}
+
+function switchTab(tab,e){
+  activeTab=tab;
+  const textArea=document.querySelector('.process-input'),fileDrop=document.getElementById('fileDrop');
+  document.querySelectorAll('.input-tab').forEach(t=>t.classList.remove('active'));
+  if(e&&e.target)e.target.classList.add('active');
+  if(tab==='text'){textArea.style.display='';fileDrop.classList.remove('active-tab');}
+  else{textArea.style.display='none';fileDrop.classList.add('active-tab');}
+}
+
+function handleFileSelect(e){setFile(e.target.files[0]);}
+function setFile(f){
+  selectedFile=f;
+  const info=document.getElementById('fileSelectedInfo');
+  if(info)info.innerHTML=`<div class="file-selected"><span>📄</span><span class="file-selected-name">${f.name}</span></div>`;
+}
+
+async function startAnalysis(){
+  const s=sessions[currentSessionId];
+  const name=document.getElementById('processName').value.trim()||'Proceso sin nombre';
+  s.name=name;
+  const btn=document.getElementById('btnAnalyze');
+  btn.disabled=true;btn.innerHTML='<div class="spinner"></div> Enviando...';
+  try{
+    let response;
+    if(activeTab==='text'){
+      const text=document.getElementById('processText').value.trim();
+      if(!text||text.length<50){showToast('Escribe al menos 50 caracteres describiendo el proceso','error');btn.disabled=false;btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Analizar proceso';return;}
+      // FIX: campo correcto es raw_input
+      response=await fetch(`${API}/analyze/text`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({raw_input:text})});
+    }else{
+      if(!selectedFile){showToast('Selecciona un archivo primero','error');btn.disabled=false;btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Analizar proceso';return;}
+      const fd=new FormData();fd.append('file',selectedFile);
+      response=await fetch(`${API}/analyze/file`,{method:'POST',body:fd});
+    }
+    if(!response.ok){const err=await response.json();throw new Error(err.detail||'Error al iniciar análisis');}
+    const data=await response.json();
+    s.apiSessionId=data.session_id;s.status='running';
+    renderSessionsList();renderSessionView();
+    showToast('Análisis iniciado correctamente','success');
+  }catch(e){
+    showToast(e.message||'Error al conectar con la API','error');
+    btn.disabled=false;btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Analizar proceso';
+  }
+}
+
+function startPolling(){
+  if(pollingInterval)clearInterval(pollingInterval);
+  pollingInterval=setInterval(pollStatus,4000);
+}
+
+async function pollStatus(){
+  const s=sessions[currentSessionId];if(!s||!s.apiSessionId)return;
+  try{
+    const r=await fetch(`${API}/sessions/${s.apiSessionId}/status`);
+    if(!r.ok)return;
+    const d=await r.json();s.statusData=d;
+    // FIX: detectar HITL con hitl_required:true y hitl_approved:false
+    if(d.hitl_required&&!d.hitl_approved){
+      const tobeR=await fetch(`${API}/sessions/${s.apiSessionId}/tobe`);
+      if(tobeR.ok)s.tobeData=await tobeR.json();
+      s.status='pending_review';clearInterval(pollingInterval);
+      renderSessionsList();renderSessionView();
+      showToast('⏸ Revisión humana requerida','info');
+    // FIX: detectar completado con kpi_ok:true
+    }else if(d.kpi_ok){
+      await loadResults(s);s.status='completed';clearInterval(pollingInterval);
+      renderSessionsList();renderSessionView();
+      showToast('✅ Análisis completado','success');
+    }else if(d.errors&&d.errors.length>0&&d.current_node==='error'){
+      s.status='error';clearInterval(pollingInterval);
+      renderSessionsList();renderSessionView();
+      showToast('Error en el análisis: '+d.errors[0],'error');
+    }
+  }catch(e){console.error('Polling error:',e);}
+}
+
+async function loadResults(s){
+  const id=s.apiSessionId;
+  const [kpis,report]=await Promise.all([
+    fetch(`${API}/sessions/${id}/kpis`).then(r=>r.ok?r.json():null).catch(()=>null),
+    fetch(`${API}/sessions/${id}/report`).then(r=>r.ok?r.json():null).catch(()=>null),
+  ]);
+  s.kpisData=kpis;s.reportData=report;
+}
+
+const STEPS=[
+  {key:'load_document',name:'Carga del documento',desc:'Extrayendo contenido del proceso'},
+  {key:'extract_asis',name:'Análisis AS-IS',desc:'Identificando actividades y tiempos'},
+  {key:'analyze_waste',name:'Detección de desperdicios',desc:'Aplicando metodología Lean'},
+  {key:'retrieve_rag',name:'Consulta RAG',desc:'Buscando casos similares en la base de conocimiento'},
+  {key:'optimize_tobe',name:'Generación TO-BE',desc:'Diseñando el proceso optimizado'},
+  {key:'hitl_review',name:'Revisión humana (HITL)',desc:'Esperando aprobación del experto'},
+  {key:'generate_bpmn',name:'Diagrama BPMN 2.0',desc:'Generando archivo para implementación'},
+  {key:'calculate_kpis',name:'Cálculo de KPIs',desc:'Cuantificando el impacto de las mejoras'},
+];
+
+function renderProgressPanel(s){
+  const currentNode=s.statusData?.current_node||'';
+  const completedMap={extraction_ok:'extract_asis',analysis_ok:'analyze_waste',optimization_ok:'optimize_tobe',bpmn_ok:'generate_bpmn',kpi_ok:'calculate_kpis'};
+  const completedNodes=[];
+  if(s.statusData){Object.entries(completedMap).forEach(([flag,node])=>{if(s.statusData[flag])completedNodes.push(node);});}
+  return `<div class="progress-panel">
+    <h2>⚡ Pipeline de optimización</h2>
+    <div class="progress-steps">
+      ${STEPS.map(step=>{
+        let cls='pending',icon='○';
+        if(completedNodes.includes(step.key)){cls='done';icon='✓';}
+        else if(currentNode===step.key){cls='running';icon='●';}
+        return `<div class="progress-step"><div class="step-indicator ${cls}">${icon}</div><div class="step-info"><div class="step-name">${step.name}</div><div class="step-desc">${step.desc}</div></div></div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function renderHITLPanel(s){
+  const activities=s.tobeData?.activities||[];
+  return `<div class="hitl-panel">
+    <div class="hitl-header"><div class="hitl-badge">⏸ HITL</div><h2>Revisa y aprueba la propuesta TO-BE</h2></div>
+    <div class="tobe-preview">
+      ${activities.length?activities.map(a=>`
+        <div class="tobe-activity">
+          <span class="activity-type type-${a.status||'conservada'}">${a.status||'conservada'}</span>
+          <div class="activity-info">
+            <div class="activity-name">${a.name||'Actividad'}</div>
+            <div class="activity-reason">${a.improvement_justification||''}</div>
+          </div>
+        </div>`).join(''):'<p style="color:var(--text-muted);font-size:var(--text-sm);">Cargando propuesta TO-BE...</p>'}
+    </div>
+    <div class="hitl-feedback">
+      <label>Comentarios (requerido si rechazas)</label>
+      <textarea id="hitlFeedback" placeholder="Ej: El paso de aprobación gerencial no puede automatizarse por política interna..."></textarea>
+    </div>
+    <div class="hitl-actions">
+      <button class="btn-approve" onclick="submitReview(true)">✅ Aprobar propuesta</button>
+      <button class="btn-reject" onclick="submitReview(false)">❌ Rechazar y regenerar</button>
+    </div>
+  </div>`;
+}
+
+async function submitReview(approved){
+  const s=sessions[currentSessionId];
+  const feedback=document.getElementById('hitlFeedback')?.value||'';
+  if(!approved&&!feedback.trim()){showToast('Escribe el motivo del rechazo','error');return;}
+  try{
+    // FIX: payload correcto es approved:bool + feedback:string
+    const r=await fetch(`${API}/sessions/${s.apiSessionId}/review`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({approved,feedback})
+    });
+    if(!r.ok){const err=await r.json();throw new Error(err.detail||'Error');}
+    showToast(approved?'Propuesta aprobada — generando resultados...':'Propuesta rechazada — regenerando...', approved?'success':'info');
+    s.status='running';renderSessionsList();renderSessionView();startPolling();
+  }catch(e){showToast(e.message||'Error al enviar revisión','error');}
+}
+
+function renderResultsPanel(s){
+  const kpis=s.kpisData||{},report=s.reportData||{};
+  const ct=kpis.cycle_time,wr=kpis.waste_reduction,ac=kpis.automation_coverage,hc=kpis.headcount;
+  const cards=[
+    {label:'Reducción tiempo de ciclo',value:ct?ct.reduction_pct.toFixed(1)+'%':'--',desc:ct?`De ${ct.asis_value.toFixed(0)} a ${ct.tobe_value.toFixed(0)} min`:'',cls:'green'},
+    {label:'Reducción de desperdicios',value:wr?wr.reduction_pct.toFixed(1)+'%':'--',desc:'Muda Lean eliminada',cls:'green'},
+    {label:'Cobertura de automatización',value:ac?ac.tobe_value.toFixed(1)+'%':'--',desc:'Actividades automatizadas',cls:'blue'},
+    {label:'Reducción de personal',value:hc?hc.reduction_pct.toFixed(1)+'%':'--',desc:'Horas liberadas',cls:''},
+    {label:'Sigma nivel AS-IS',value:kpis.sigma_level_asis!=null?kpis.sigma_level_asis+'σ':'--',desc:'Calidad proceso actual',cls:''},
+    {label:'ROI estimado',value:kpis.estimated_roi_pct!=null?kpis.estimated_roi_pct+'%':'--',desc:'Retorno sobre la inversión',cls:'green'},
+  ];
+  return `
+  <div class="results-grid">
+    ${cards.map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value ${k.cls}">${k.value}</div><div class="kpi-desc">${k.desc}</div></div>`).join('')}
+  </div>
+  <div class="result-panel">
+    <div class="result-panel-header">
+      <h2>📄 Resumen ejecutivo</h2>
+      <button class="btn-download" onclick="downloadBPMN()">⬇ Descargar BPMN</button>
+    </div>
+    <p style="font-size:var(--text-sm);color:var(--text-muted);line-height:1.7;">${report.kpi_report?.executive_summary||kpis.executive_summary||'Análisis completado. El proceso fue optimizado aplicando Lean Six Sigma.'}</p>
+  </div>`;
+}
+
+async function downloadBPMN(){
+  const s=sessions[currentSessionId];if(!s?.apiSessionId)return;
+  try{
+    const r=await fetch(`${API}/sessions/${s.apiSessionId}/bpmn`);
+    const blob=await r.blob();
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download=`${s.name.replace(/\s+/g,'_')}_BPMN.bpmn`;a.click();
+    showToast('BPMN descargado','success');
+  }catch{showToast('Error al descargar el BPMN','error');}
+}
+
+checkHealth();setInterval(checkHealth,30000);
+</script>
+</body>
+</html>

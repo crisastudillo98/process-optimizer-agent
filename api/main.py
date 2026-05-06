@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, BackgroundTasks, UploadFile, status
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -43,7 +44,7 @@ app = FastAPI(
         "con Lean, Six Sigma y Kaizen."
     ),
     version="1.0.0",
-    docs_url="/docs",
+    docs_url="/openapi",
     redoc_url="/redoc",
 )
 
@@ -57,6 +58,16 @@ app.add_middleware(
 
 app.include_router(chat_router)
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
+
+# ─────────────────────────────────────────────
+# STATIC FILES + ROOT REDIRECT
+# ─────────────────────────────────────────────
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return FileResponse("docs/login.html")
+
+app.mount("/docs", StaticFiles(directory="docs"), name="docs")
 
 # ─────────────────────────────────────────────
 # SESSION STORE  (in-memory; replace with Redis in prod)

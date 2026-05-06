@@ -8,3 +8,5 @@ storage/vector_db/
 *.egg-info/
 dist/
 .DS_Store
+process-optimizer-v2.html
+process-optimizer.html

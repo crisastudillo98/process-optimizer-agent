@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProcessOptimizer — Dashboard</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body { overflow: hidden; }
+    #main { overflow-y: auto; padding: 0; }
+    .main-content { min-height: calc(100vh - 60px); }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside id="sidebar" role="navigation">
+  <div class="sidebar-logo">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#00d4aa" stroke-width="1.5" fill="none" opacity="0.5"/>
+      <path d="M16 8L22 14L16 20L10 14L16 8Z" fill="#00d4aa" fill-opacity="0.15" stroke="#00d4aa" stroke-width="1.5"/>
+      <circle cx="16" cy="14" r="2.5" fill="#00d4aa"/>
+      <path d="M16 17.5V21" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M14.5 19.5L16 21L17.5 19.5" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="logo-text">Process<span>Optix</span></span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="dashboard.html" class="nav-item active">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+      </svg>
+      Mis Procesos
+    </a>
+    <a href="#" class="nav-item" style="opacity:0.5;cursor:default;" title="Coming soon">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 1L10.5 6H15L11 9.5L12.5 15L8 12L3.5 15L5 9.5L1 6H5.5L8 1Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      </svg>
+      Compartidos
+    </a>
+    <a href="metrics.html" class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M1 12L5 8L9 10L15 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Métricas
+    </a>
+  </nav>
+
+  <div class="sidebar-user">
+    <div class="user-avatar" id="user-avatar">--</div>
+    <div class="user-info">
+      <div class="user-name" id="user-name">Loading...</div>
+      <div class="user-email" id="user-email"></div>
+    </div>
+    <button onclick="handleLogout()" title="Sign out" style="color:var(--muted);margin-left:auto;padding:4px;border-radius:4px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+</aside>
+
+<!-- Main content -->
+<main id="main">
+  <div class="main-content">
+    <!-- Top bar -->
+    <div class="dashboard-topbar">
+      <div>
+        <div class="page-title" style="margin-bottom:0.15rem;">Process Workspaces</div>
+        <div style="font-size:0.85rem;color:var(--muted);">Manage and optimize your business processes</div>
+      </div>
+      <div class="dashboard-topbar-actions">
+        <button class="btn-secondary" onclick="document.getElementById('file-upload-input').click()">
+          Upload Sources
+        </button>
+        <input type="file" id="file-upload-input" style="display:none" accept=".pdf,.docx,.xlsx,.txt" onchange="handleFileUpload(this.files[0])">
+        <button class="btn-new" onclick="openDrawer()">+ New Process</button>
+      </div>
+    </div>
+
+    <!-- Tab switcher -->
+    <div class="tab-switcher">
+      <div class="tab-switcher-item active" id="tab-mine" onclick="switchTab('mine')">My Processes</div>
+      <div class="tab-switcher-item" id="tab-shared" onclick="switchTab('shared')">Shared with me</div>
+    </div>
+
+    <!-- Search -->
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search processes..." oninput="filterCards(this.value)" style="max-width:360px;">
+    </div>
+
+    <!-- Process grid -->
+    <div class="dashboard-grid" id="process-grid">
+      <div class="empty-state" id="loading-state">
+        <div class="spinner" style="display:inline-block;width:24px;height:24px;border-color:var(--border-med);border-top-color:var(--primary);margin:0 auto;"></div>
+        <p style="margin-top:1rem;color:var(--muted);">Loading processes...</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Drawer overlay -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+
+<!-- New Process Drawer -->
+<div class="drawer" id="new-process-drawer">
+  <div class="drawer-header">
+    <h3 style="font-size:1.1rem;">New Process Analysis</h3>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+
+  <div class="auth-form-group">
+    <label for="drawer-process-name">Process name</label>
+    <input type="text" id="drawer-process-name" placeholder="e.g. Order Fulfillment">
+  </div>
+
+  <!-- Input tabs -->
+  <div class="input-tabs" style="margin-bottom:1rem;">
+    <div class="input-tab active" onclick="switchInputTab('text', this)">Text</div>
+    <div class="input-tab" onclick="switchInputTab('file', this)">File</div>
+  </div>
+
+  <!-- Text tab -->
+  <div id="drawer-tab-text" class="input-tab-panel active">
+    <label class="form-label">Describe the AS-IS process</label>
+    <textarea id="drawer-text-input" placeholder="Describe your current process in detail. Include all steps, actors, timings, and pain points..." style="min-height:200px;"></textarea>
+  </div>
+
+  <!-- File tab -->
+  <div id="drawer-tab-file" class="input-tab-panel">
+    <div class="dropzone" id="drawer-dropzone" onclick="document.getElementById('drawer-file-input').click()"
+         ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
+         ondragleave="this.style.borderColor=''"
+         ondrop="handleDrop(event)">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="dropzone-text">Drop file here or click to browse</div>
+      <div class="dropzone-hint">PDF, DOCX, XLSX, TXT supported</div>
+      <div class="dropzone-filename" id="drawer-filename"></div>
+    </div>
+    <input type="file" id="drawer-file-input" style="display:none" accept=".pdf,.docx,.xlsx,.txt" onchange="selectFile(this.files[0])">
+  </div>
+
+  <div class="error-msg" id="drawer-error" style="margin-top:1rem;"></div>
+
+  <button class="btn-auth" id="analyze-btn" onclick="startAnalysis()" style="margin-top:1.5rem;">
+    <span id="analyze-btn-text">Analyze Process →</span>
+    <span class="spinner" id="analyze-spinner" style="display:none;border-top-color:#0a0a0f;"></span>
+  </button>
+</div>
+
+<script type="module">
+  import { requireAuth, auth, analyses, sessions } from './js/api.js';
+  import { setUser, setProcesses, state } from './js/state.js';
+
+  if (!requireAuth()) throw new Error('Not authenticated');
+
+  let allProcesses = [];
+  let selectedFile = null;
+  let currentTab = 'text';
+
+  // Load user and processes
+  async function init() {
+    try {
+      const user = await auth.me();
+      if (!user) return;
+      setUser(user);
+      const initials = user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+      document.getElementById('user-avatar').textContent = initials;
+      document.getElementById('user-name').textContent = user.full_name;
+      document.getElementById('user-email').textContent = user.email;
+    } catch (e) {
+      console.error('Failed to load user:', e);
+    }
+
+    await loadProcesses();
+  }
+
+  async function loadProcesses() {
+    try {
+      const data = await analyses.list(50);
+      if (!data) return;
+      allProcesses = data.analyses || [];
+      setProcesses(allProcesses);
+      renderGrid(allProcesses);
+    } catch (e) {
+      document.getElementById('process-grid').innerHTML =
+        '<div class="empty-state"><h3>Failed to load processes</h3><p>' + (e.message || '') + '</p></div>';
+    }
+  }
+
+  function renderGrid(items) {
+    const grid = document.getElementById('process-grid');
+    if (items.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="color:var(--very-muted);margin-bottom:1rem;">
+            <path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <h3>No processes yet</h3>
+          <p style="margin-bottom:1.5rem;">Analyze your first process to get started.</p>
+          <button class="btn-new" onclick="openDrawer()">+ New Process</button>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = items.map(p => {
+      const statusClass = p.status === 'completed' ? 'completed' : p.status === 'error' ? 'error' : 'running';
+      const statusLabel = p.status === 'completed' ? 'Completed' : p.status === 'error' ? 'Error' : 'Running';
+      const scoreHtml = p.score != null ? `<div class="card-score">${Math.round(p.score)}%</div>` : '';
+      const date = p.created_at ? new Date(p.created_at).toLocaleDateString() : '';
+      const name = p.process_name || p.id.slice(0, 8);
+      return `
+        <div class="process-card" onclick="openWorkspace('${p.id}')">
+          <div class="card-header">
+            <h3>${escHtml(name)}</h3>
+            <span class="status-pill ${statusClass}">${statusLabel}</span>
+          </div>
+          <div class="card-meta">${date}</div>
+          ${scoreHtml}
+          <div class="card-footer">
+            <span style="font-size:0.78rem;color:var(--muted);">ID: ${p.id.slice(0, 8)}…</span>
+            <button class="btn-open" onclick="event.stopPropagation();openWorkspace('${p.id}')">Open Workspace</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  window.filterCards = function(q) {
+    const filtered = q
+      ? allProcesses.filter(p => (p.process_name || '').toLowerCase().includes(q.toLowerCase()))
+      : allProcesses;
+    renderGrid(filtered);
+  };
+
+  window.switchTab = function(tab) {
+    document.getElementById('tab-mine').classList.toggle('active', tab === 'mine');
+    document.getElementById('tab-shared').classList.toggle('active', tab === 'shared');
+    if (tab === 'shared') {
+      document.getElementById('process-grid').innerHTML = `
+        <div class="empty-state">
+          <h3>Coming soon</h3>
+          <p>Shared workspaces will be available in a future update.</p>
+        </div>`;
+    } else {
+      renderGrid(allProcesses);
+    }
+  };
+
+  window.openWorkspace = function(id) {
+    localStorage.setItem('active_session', id);
+    window.location.href = 'workspace.html';
+  };
+
+  window.openDrawer = function() {
+    document.getElementById('drawer-overlay').classList.add('open');
+    document.getElementById('new-process-drawer').classList.add('open');
+  };
+
+  window.closeDrawer = function() {
+    document.getElementById('drawer-overlay').classList.remove('open');
+    document.getElementById('new-process-drawer').classList.remove('open');
+  };
+
+  window.switchInputTab = function(tab, el) {
+    currentTab = tab;
+    document.querySelectorAll('.input-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('drawer-tab-text').classList.toggle('active', tab === 'text');
+    document.getElementById('drawer-tab-file').classList.toggle('active', tab === 'file');
+  };
+
+  window.selectFile = function(file) {
+    if (!file) return;
+    selectedFile = file;
+    const fn = document.getElementById('drawer-filename');
+    fn.textContent = file.name;
+    fn.style.display = 'block';
+  };
+
+  window.handleDrop = function(e) {
+    e.preventDefault();
+    document.getElementById('drawer-dropzone').style.borderColor = '';
+    const file = e.dataTransfer.files[0];
+    if (file) window.selectFile(file);
+  };
+
+  window.handleFileUpload = function(file) {
+    if (!file) return;
+    window.selectFile(file);
+    window.openDrawer();
+    window.switchInputTab('file', document.querySelectorAll('.input-tab')[1]);
+  };
+
+  window.handleLogout = function() { auth.logout(); };
+
+  window.startAnalysis = async function() {
+    const name = document.getElementById('drawer-process-name').value.trim();
+    const errEl = document.getElementById('drawer-error');
+    errEl.classList.remove('visible');
+
+    if (currentTab === 'text') {
+      const text = document.getElementById('drawer-text-input').value.trim();
+      if (text.length < 50) {
+        errEl.textContent = 'Please provide at least 50 characters describing the process.';
+        errEl.classList.add('visible');
+        return;
+      }
+      setAnalyzeLoading(true);
+      try {
+        const result = await sessions.analyzeText(text, name || 'Untitled Process');
+        if (!result) return;
+        localStorage.setItem('active_session', result.session_id);
+        window.location.href = 'workspace.html';
+      } catch (e) {
+        errEl.textContent = e.message || 'Analysis failed. Please try again.';
+        errEl.classList.add('visible');
+        setAnalyzeLoading(false);
+      }
+    } else {
+      if (!selectedFile) {
+        errEl.textContent = 'Please select a file to upload.';
+        errEl.classList.add('visible');
+        return;
+      }
+      setAnalyzeLoading(true);
+      try {
+        const result = await sessions.analyzeFile(selectedFile);
+        if (!result) return;
+        localStorage.setItem('active_session', result.session_id);
+        window.location.href = 'workspace.html';
+      } catch (e) {
+        errEl.textContent = e.message || 'Upload failed. Please try again.';
+        errEl.classList.add('visible');
+        setAnalyzeLoading(false);
+      }
+    }
+  };
+
+  function setAnalyzeLoading(loading) {
+    document.getElementById('analyze-btn').disabled = loading;
+    document.getElementById('analyze-spinner').style.display = loading ? 'inline-block' : 'none';
+    document.getElementById('analyze-btn-text').style.opacity = loading ? '0' : '1';
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProcessOptimizer — Workspace</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <script src="https://unpkg.com/bpmn-js/dist/bpmn-navigated-viewer.production.min.js"></script>
+  <style>
+    body { display: flex; flex-direction: column; overflow: hidden; }
+    #workspace-root { display: flex; flex-direction: column; flex: 1; height: 100vh; overflow: hidden; }
+    .workspace-chat-messages { flex: 1; overflow-y: auto; }
+    .panel-center { display: flex; flex-direction: column; overflow: hidden; }
+  </style>
+</head>
+<body>
+
+<div id="workspace-root">
+  <!-- Top bar -->
+  <div class="workspace-topbar">
+    <div class="workspace-topbar-left">
+      <a href="dashboard.html" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back
+      </a>
+      <div style="width:1px;height:20px;background:var(--border);"></div>
+      <div>
+        <div style="font-weight:600;font-size:0.9rem;" id="ws-process-name">Loading...</div>
+        <div style="font-size:0.75rem;color:var(--muted);" id="ws-status-label">Analyzing...</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.75rem;">
+      <button onclick="downloadBpmn()" class="btn-secondary" id="download-bpmn-btn" style="display:none;font-size:0.8rem;padding:0.35rem 0.8rem;">
+        ↓ Download BPMN
+      </button>
+      <a href="metrics.html" class="btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.8rem;display:none;" id="metrics-link">
+        📊 Full Metrics
+      </a>
+      <div style="font-size:0.78rem;color:var(--muted);" id="ws-user-name"></div>
+    </div>
+  </div>
+
+  <!-- HITL banner (hidden by default) -->
+  <div class="hitl-banner" id="hitl-banner" style="display:none;">
+    <div>
+      <span class="hitl-label">⏸ Review Required — </span>
+      <span id="hitl-banner-text">Optimization proposal needs your approval</span>
+    </div>
+    <div class="hitl-actions">
+      <button class="btn-approve" id="hitl-approve-btn" onclick="approveHITL()">✓ Approve</button>
+      <button class="btn-reject" id="hitl-reject-btn" onclick="rejectHITL()">✗ Reject</button>
+    </div>
+  </div>
+
+  <!-- 3-panel workspace -->
+  <div class="workspace-layout">
+
+    <!-- LEFT PANEL -->
+    <div class="panel-left">
+      <div style="margin-bottom:1.25rem;">
+        <div class="panel-section-title">PROCESS</div>
+        <div style="font-weight:600;font-size:0.9rem;margin-top:0.5rem;" id="left-process-name">—</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem;" id="left-process-id"></div>
+      </div>
+
+      <div style="margin-bottom:1.25rem;">
+        <div class="panel-section-title">VERSIONS</div>
+        <div style="margin-top:0.5rem;">
+          <div class="source-item" style="color:var(--primary);font-weight:500;">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="6" cy="6" r="2" fill="currentColor"/>
+            </svg>
+            V1 — Current
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1.25rem;">
+        <div class="panel-section-title">SOURCE GALLERY</div>
+        <div class="source-item" id="source-item">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <rect x="1" y="1" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M3 4h6M3 7h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          Text description
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-section-title" style="margin-bottom:0.75rem;">ADD SOURCE</div>
+        <input type="text" placeholder="Meeting link or URL" style="font-size:0.8rem;padding:0.4rem 0.7rem;" title="Coming in Sprint 3">
+      </div>
+    </div>
+
+    <!-- CENTER PANEL -->
+    <div class="panel-center">
+      <div class="center-panel-header">
+        <div class="chat-avatar" style="width:28px;height:28px;border-radius:8px;flex-shrink:0;">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1L10 6H15L11 9L13 14L8 11L3 14L5 9L1 6H6L8 1Z" fill="white"/>
+          </svg>
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:0.88rem;">⚡ Process Analysis Chat</div>
+          <div style="font-size:0.72rem;color:var(--muted);">Lean / Six Sigma consultant</div>
+        </div>
+      </div>
+
+      <!-- Suggestion chips (shown when no messages) -->
+      <div class="workspace-chips" id="suggestion-chips">
+        <button class="chip" onclick="sendSuggestion(this.textContent)">Identify bottlenecks</button>
+        <button class="chip" onclick="sendSuggestion(this.textContent)">Explain waste analysis</button>
+        <button class="chip" onclick="sendSuggestion(this.textContent)">Compare AS-IS vs TO-BE</button>
+        <button class="chip" onclick="sendSuggestion(this.textContent)">Show automation opportunities</button>
+      </div>
+
+      <!-- Messages -->
+      <div class="workspace-chat-messages" id="chat-messages">
+        <div class="chat-empty" id="chat-empty">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="color:var(--very-muted);">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Ask anything about the analysis</span>
+        </div>
+      </div>
+
+      <!-- Chat input -->
+      <div class="workspace-chat-input" id="chat-input-area">
+        <textarea id="chat-input" placeholder="Ask about the analysis..." rows="1"
+          onkeydown="handleChatKey(event)"
+          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+        <button class="workspace-send-btn" id="chat-send-btn" onclick="sendChat()" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL — Living Documentation -->
+    <div class="panel-right">
+      <div class="living-doc-header">
+        <span style="font-weight:600;font-size:0.88rem;">Living Documentation</span>
+        <div class="live-badge">
+          <div class="live-dot"></div>
+          Live
+        </div>
+      </div>
+
+      <div class="panel-tabs">
+        <div class="panel-tab active" onclick="switchRightTab('flow', this)">Flow Diagrams</div>
+        <div class="panel-tab" onclick="switchRightTab('metrics', this)">Metrics</div>
+        <div class="panel-tab" onclick="switchRightTab('recs', this)">Recommendations</div>
+      </div>
+
+      <!-- Tab: Flow Diagrams -->
+      <div class="panel-tab-content active" id="tab-flow">
+        <div class="bpmn-subtabs">
+          <button class="bpmn-subtab active" onclick="switchBpmnView('asis', this)">AS-IS</button>
+          <button class="bpmn-subtab" onclick="switchBpmnView('tobe', this)">TO-BE</button>
+        </div>
+        <div id="bpmn-loading" style="color:var(--muted);font-size:0.82rem;padding:1rem 0;">Loading diagram...</div>
+        <div class="bpmn-viewer" id="bpmn-viewer-container" style="display:none;"></div>
+        <div class="bpmn-zoom-controls" id="bpmn-zoom-controls" style="display:none;">
+          <button class="bpmn-zoom-btn" onclick="bpmnZoom('fit')">Fit</button>
+          <button class="bpmn-zoom-btn" onclick="bpmnZoom('in')">+</button>
+          <button class="bpmn-zoom-btn" onclick="bpmnZoom('out')">−</button>
+        </div>
+        <div id="bpmn-step-badge" style="font-size:0.72rem;color:var(--muted);margin-top:0.5rem;"></div>
+      </div>
+
+      <!-- Tab: Metrics -->
+      <div class="panel-tab-content" id="tab-metrics">
+        <div id="metrics-content">
+          <div style="color:var(--muted);font-size:0.82rem;">Waiting for analysis...</div>
+        </div>
+      </div>
+
+      <!-- Tab: Recommendations -->
+      <div class="panel-tab-content" id="tab-recs">
+        <div id="recs-content">
+          <div style="color:var(--muted);font-size:0.82rem;">Waiting for analysis...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { requireAuth, auth, sessions, chat, apiBlob } from './js/api.js';
+  import { setUser, setReport, state } from './js/state.js';
+
+  if (!requireAuth()) throw new Error('Not authenticated');
+
+  const sessionId = localStorage.getItem('active_session');
+  if (!sessionId) { window.location.href = 'dashboard.html'; }
+
+  let bpmnViewer = null;
+  let bpmnXml = null;
+  let pollTimer = null;
+
+  // ── Init ──────────────────────────────────────────────
+  async function init() {
+    try {
+      const user = await auth.me();
+      if (!user) return;
+      setUser(user);
+      document.getElementById('ws-user-name').textContent = user.full_name;
+    } catch(e) { console.error(e); }
+
+    document.getElementById('left-process-id').textContent = 'ID: ' + sessionId.slice(0, 8) + '…';
+
+    // Enable send button when there's text
+    document.getElementById('chat-input').addEventListener('input', function() {
+      document.getElementById('chat-send-btn').disabled = !this.value.trim() || !window.__lastReport;
+    });
+
+    await pollStatus();
+  }
+
+  // ── Polling ───────────────────────────────────────────
+  async function pollStatus() {
+    try {
+      const status = await sessions.status(sessionId);
+      if (!status) return;
+
+      const name = status.process_name || sessionId.slice(0, 8);
+      document.getElementById('ws-process-name').textContent = name;
+      document.getElementById('left-process-name').textContent = name;
+
+      // Check HITL flags
+      if (status.hitl_required) {
+        showHitlBanner('Review the proposed TO-BE optimization before continuing');
+      }
+
+      if (status.kpi_ok) {
+        document.getElementById('ws-status-label').textContent = 'Analysis complete';
+        await loadReport();
+        return;
+      }
+
+      if (status.status === 'error') {
+        document.getElementById('ws-status-label').textContent = 'Analysis failed';
+        return;
+      }
+
+      // Keep polling
+      document.getElementById('ws-status-label').textContent = 'Analyzing… ' + (status.status || '');
+      pollTimer = setTimeout(pollStatus, 3000);
+    } catch (e) {
+      console.error('Poll error:', e);
+      pollTimer = setTimeout(pollStatus, 5000);
+    }
+  }
+
+  async function loadReport() {
+    try {
+      const report = await sessions.report(sessionId);
+      if (!report) return;
+      setReport(report);
+      window.__lastReport = report;
+
+      // Enable chat
+      document.getElementById('chat-send-btn').disabled = !document.getElementById('chat-input').value.trim();
+
+      populateRightPanel(report);
+      await loadBpmn();
+
+      document.getElementById('download-bpmn-btn').style.display = 'inline-flex';
+      document.getElementById('metrics-link').style.display = 'inline-flex';
+    } catch (e) {
+      console.error('Report error:', e);
+      document.getElementById('ws-status-label').textContent = 'Report unavailable: ' + e.message;
+    }
+  }
+
+  // ── BPMN ─────────────────────────────────────────────
+  async function loadBpmn() {
+    try {
+      const blob = await apiBlob(`/sessions/${sessionId}/bpmn`);
+      bpmnXml = await blob.text();
+
+      const container = document.getElementById('bpmn-viewer-container');
+      container.style.display = 'block';
+      document.getElementById('bpmn-loading').style.display = 'none';
+      document.getElementById('bpmn-zoom-controls').style.display = 'flex';
+
+      bpmnViewer = new BpmnJS({ container });
+      const { warnings } = await bpmnViewer.importXML(bpmnXml);
+      bpmnViewer.get('canvas').zoom('fit-viewport');
+
+      // Count flow nodes for badge
+      const matches = bpmnXml.match(/<(bpmn:|)(task|userTask|serviceTask|exclusiveGateway|parallelGateway|startEvent|endEvent)/g);
+      const count = matches ? matches.length : 0;
+      document.getElementById('bpmn-step-badge').textContent = count + ' elements';
+    } catch (e) {
+      document.getElementById('bpmn-loading').textContent = 'BPMN not yet available.';
+    }
+  }
+
+  window.bpmnZoom = function(action) {
+    if (!bpmnViewer) return;
+    const canvas = bpmnViewer.get('canvas');
+    if (action === 'fit') canvas.zoom('fit-viewport');
+    else if (action === 'in') canvas.zoom(canvas.zoom() * 1.25);
+    else canvas.zoom(canvas.zoom() * 0.8);
+  };
+
+  window.switchBpmnView = function(view, el) {
+    document.querySelectorAll('.bpmn-subtab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    // For now both sub-tabs show the same XML (single BPMN endpoint)
+    if (bpmnViewer) bpmnViewer.get('canvas').zoom('fit-viewport');
+  };
+
+  window.downloadBpmn = async function() {
+    await sessions.bpmn(sessionId, 'process.bpmn');
+  };
+
+  // ── Right panel population ────────────────────────────
+  function populateRightPanel(report) {
+    const kpi = report.kpi_report || {};
+    const ct = kpi.cycle_time || {};
+    const hc = kpi.human_count || {};
+    const ac = kpi.automation_coverage || {};
+    const we = kpi.waste_elimination || {};
+
+    // Metrics tab
+    document.getElementById('metrics-content').innerHTML = `
+      <div class="kpi-mini-card">
+        <div class="kpi-mini-label">Cycle Time Reduction</div>
+        <div class="kpi-mini-value">${ct.reduction_pct != null ? ct.reduction_pct + '%' : '—'}</div>
+        <div class="kpi-mini-delta">↓ ${ct.reduction_absolute || 0} min saved per cycle</div>
+      </div>
+      <div class="kpi-mini-card">
+        <div class="kpi-mini-label">Manual Steps</div>
+        <div class="kpi-mini-value">${hc.asis_value != null ? hc.asis_value + '→' + hc.tobe_value : '—'}</div>
+        <div class="kpi-mini-delta">↓ ${hc.reduction_pct != null ? hc.reduction_pct + '% reduction' : ''}</div>
+      </div>
+      <div class="kpi-mini-card">
+        <div class="kpi-mini-label">Waste Eliminated</div>
+        <div class="kpi-mini-value">${we.reduction_pct != null ? we.reduction_pct + '%' : '—'}</div>
+        <div class="kpi-mini-delta">Lean waste removed</div>
+      </div>
+      <div class="kpi-mini-card">
+        <div class="kpi-mini-label">Automation Coverage</div>
+        <div class="kpi-mini-value">${ac.tobe_value != null ? ac.tobe_value + '%' : '—'}</div>
+        <div class="kpi-mini-delta">↑ from ${ac.asis_value != null ? ac.asis_value + '%' : '—'}</div>
+      </div>`;
+
+    // Recommendations tab
+    const wins = (report.waste_analysis && report.waste_analysis.kaizen_quick_wins) || [];
+    if (wins.length === 0) {
+      document.getElementById('recs-content').innerHTML =
+        '<div style="color:var(--muted);font-size:0.82rem;">No recommendations available.</div>';
+    } else {
+      document.getElementById('recs-content').innerHTML = wins.map(w =>
+        `<div class="rec-card"><span class="rec-icon">⚡</span><span>${escHtml(String(w))}</span></div>`
+      ).join('');
+    }
+  }
+
+  // ── HITL ─────────────────────────────────────────────
+  function showHitlBanner(msg) {
+    document.getElementById('hitl-banner-text').textContent = msg;
+    document.getElementById('hitl-banner').style.display = 'flex';
+  }
+
+  window.approveHITL = async function() {
+    try {
+      document.getElementById('hitl-approve-btn').disabled = true;
+      await sessions.review(sessionId, true);
+      document.getElementById('hitl-banner').style.display = 'none';
+      document.getElementById('ws-status-label').textContent = 'Approved — resuming analysis…';
+      await pollStatus();
+    } catch (e) {
+      alert('Error: ' + e.message);
+      document.getElementById('hitl-approve-btn').disabled = false;
+    }
+  };
+
+  window.rejectHITL = async function() {
+    const feedback = prompt('Feedback for rejection (optional):') || '';
+    try {
+      document.getElementById('hitl-reject-btn').disabled = true;
+      await sessions.review(sessionId, false, feedback);
+      document.getElementById('hitl-banner').style.display = 'none';
+      document.getElementById('ws-status-label').textContent = 'Rejected — re-optimizing…';
+      await pollStatus();
+    } catch (e) {
+      alert('Error: ' + e.message);
+      document.getElementById('hitl-reject-btn').disabled = false;
+    }
+  };
+
+  // ── Chat ─────────────────────────────────────────────
+  window.handleChatKey = function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      window.sendChat();
+    }
+  };
+
+  window.sendSuggestion = function(text) {
+    document.getElementById('chat-input').value = text;
+    window.sendChat();
+  };
+
+  window.sendChat = async function() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg || !window.__lastReport) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+    document.getElementById('chat-send-btn').disabled = true;
+    document.getElementById('suggestion-chips').style.display = 'none';
+    document.getElementById('chat-empty').style.display = 'none';
+
+    appendBubble(msg, 'user');
+    const loader = appendLoader();
+
+    try {
+      const res = await chat.send(sessionId, msg, window.__lastReport);
+      loader.remove();
+      if (res) appendBubble(res.respuesta, 'agent');
+    } catch (e) {
+      loader.remove();
+      appendBubble('Error: ' + e.message, 'agent');
+    }
+
+    document.getElementById('chat-send-btn').disabled = !input.value.trim();
+  };
+
+  function appendBubble(text, role) {
+    const msgs = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'chat-bubble ' + role;
+    div.innerHTML = role === 'agent' ? renderMarkdown(text) : escHtml(text);
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+    return div;
+  }
+
+  function appendLoader() {
+    const msgs = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'chat-loader';
+    div.innerHTML = '<div class="chat-loader-dot"></div><div class="chat-loader-dot"></div><div class="chat-loader-dot"></div>';
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+    return div;
+  }
+
+  function renderMarkdown(text) {
+    return text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Panel tabs ────────────────────────────────────────
+  window.switchRightTab = function(tab, el) {
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel-tab-content').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+  };
+
+  init();
+</script>
+</body>
+</html>

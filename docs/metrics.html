@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProcessOptimizer — Metrics</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body { overflow: hidden; }
+    #main { overflow-y: auto; padding: 2rem; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside id="sidebar" role="navigation">
+  <div class="sidebar-logo">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#00d4aa" stroke-width="1.5" fill="none" opacity="0.5"/>
+      <path d="M16 8L22 14L16 20L10 14L16 8Z" fill="#00d4aa" fill-opacity="0.15" stroke="#00d4aa" stroke-width="1.5"/>
+      <circle cx="16" cy="14" r="2.5" fill="#00d4aa"/>
+      <path d="M16 17.5V21" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M14.5 19.5L16 21L17.5 19.5" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="logo-text">Process<span>Optix</span></span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="dashboard.html" class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+      </svg>
+      Mis Procesos
+    </a>
+    <a href="#" class="nav-item" style="opacity:0.5;cursor:default;" title="Coming soon">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 1L10.5 6H15L11 9.5L12.5 15L8 12L3.5 15L5 9.5L1 6H5.5L8 1Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      </svg>
+      Compartidos
+    </a>
+    <a href="metrics.html" class="nav-item active">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M1 12L5 8L9 10L15 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Métricas
+    </a>
+  </nav>
+
+  <div class="sidebar-user">
+    <div class="user-avatar" id="user-avatar">--</div>
+    <div class="user-info">
+      <div class="user-name" id="user-name">Loading...</div>
+      <div class="user-email" id="user-email"></div>
+    </div>
+    <button onclick="handleLogout()" title="Sign out" style="color:var(--muted);margin-left:auto;padding:4px;border-radius:4px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+</aside>
+
+<!-- Main content -->
+<main id="main">
+  <!-- Header -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.75rem;">
+    <div>
+      <a href="workspace.html" class="back-link" style="display:inline-flex;align-items:center;gap:0.4rem;margin-bottom:0.75rem;font-size:0.85rem;color:var(--muted);">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back to Workspace
+      </a>
+      <div class="page-title" style="margin-bottom:0.25rem;">Process Metrics</div>
+      <div class="page-sub" id="metrics-subtitle" style="margin-bottom:0;">Loading analysis...</div>
+    </div>
+  </div>
+
+  <!-- No session state -->
+  <div id="no-session-state" style="display:none;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:3rem;text-align:center;max-width:480px;">
+      <div style="font-size:2rem;margin-bottom:1rem;">📊</div>
+      <h3 style="margin-bottom:0.5rem;">No process selected</h3>
+      <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1.5rem;">Select a process from the dashboard first to view its metrics.</p>
+      <a href="dashboard.html" class="btn-new" style="display:inline-block;padding:0.6rem 1.25rem;text-decoration:none;">Go to Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Metrics content (hidden until loaded) -->
+  <div id="metrics-content" style="display:none;">
+
+    <!-- Top stats row -->
+    <div class="metrics-grid">
+      <!-- Card 1: Time Saved -->
+      <div class="metric-card">
+        <div class="metric-card-label">Time Saved</div>
+        <div class="metric-card-value" id="mc-time-value">—</div>
+        <div class="metric-card-delta" id="mc-time-delta"></div>
+        <div class="metric-card-sub">Per process cycle reduction</div>
+      </div>
+
+      <!-- Card 2: Cost Reduction -->
+      <div class="metric-card">
+        <div class="metric-card-label">Annual Hours Saved</div>
+        <div class="metric-card-value" id="mc-hours-value">—</div>
+        <div class="metric-card-delta" id="mc-hours-delta"></div>
+        <div class="metric-card-sub" id="mc-hours-sub">Monthly savings estimate</div>
+      </div>
+
+      <!-- Card 3: Steps Eliminated -->
+      <div class="metric-card">
+        <div class="metric-card-label">Process Steps Automated</div>
+        <div class="metric-card-value" id="mc-steps-value">—</div>
+        <div class="metric-card-delta" id="mc-steps-delta"></div>
+        <div class="metric-card-sub">Manual steps eliminated</div>
+      </div>
+    </div>
+
+    <!-- AS-IS vs TO-BE Comparison -->
+    <div class="comparison-section">
+      <div class="comparison-section-title">AS-IS VS TO-BE COMPARISON</div>
+
+      <!-- Row 1: Cycle Time -->
+      <div class="comparison-bar-row">
+        <div class="comparison-bar-label">Cycle Time</div>
+        <div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
+          <div class="bar-track" style="margin-bottom:4px;">
+            <div class="bar-asis" id="bar-ct-asis" style="width:100%;"></div>
+          </div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
+          <div class="bar-track">
+            <div class="bar-tobe" id="bar-ct-tobe" style="width:0%;"></div>
+          </div>
+        </div>
+        <div class="comparison-bar-pct" id="pct-ct">—</div>
+      </div>
+
+      <!-- Row 2: Manual Steps -->
+      <div class="comparison-bar-row">
+        <div class="comparison-bar-label">Manual Steps</div>
+        <div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
+          <div class="bar-track" style="margin-bottom:4px;">
+            <div class="bar-asis" id="bar-hc-asis" style="width:100%;"></div>
+          </div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
+          <div class="bar-track">
+            <div class="bar-tobe" id="bar-hc-tobe" style="width:0%;"></div>
+          </div>
+        </div>
+        <div class="comparison-bar-pct" id="pct-hc">—</div>
+      </div>
+
+      <!-- Row 3: Waste Eliminated -->
+      <div class="comparison-bar-row">
+        <div class="comparison-bar-label">Waste Level</div>
+        <div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
+          <div class="bar-track" style="margin-bottom:4px;">
+            <div class="bar-asis" id="bar-we-asis" style="width:100%;"></div>
+          </div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
+          <div class="bar-track">
+            <div class="bar-tobe" id="bar-we-tobe" style="width:0%;"></div>
+          </div>
+        </div>
+        <div class="comparison-bar-pct" id="pct-we">—</div>
+      </div>
+
+      <!-- Row 4: Automation Coverage -->
+      <div class="comparison-bar-row">
+        <div class="comparison-bar-label">Automation Coverage</div>
+        <div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
+          <div class="bar-track" style="margin-bottom:4px;">
+            <div class="bar-asis" id="bar-ac-asis" style="width:0%;background:#94a3b8;"></div>
+          </div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
+          <div class="bar-track">
+            <div class="bar-tobe" id="bar-ac-tobe" style="width:0%;"></div>
+          </div>
+        </div>
+        <div class="comparison-bar-pct" id="pct-ac">—</div>
+      </div>
+    </div>
+
+    <!-- Sigma Level -->
+    <div class="sigma-section">
+      <div class="sigma-item">
+        <div class="sigma-level asis" id="sigma-asis">—</div>
+        <div class="sigma-label">AS-IS Sigma Level</div>
+      </div>
+      <div class="sigma-arrow">→</div>
+      <div class="sigma-item">
+        <div class="sigma-level tobe" id="sigma-tobe">—</div>
+        <div class="sigma-label">TO-BE Sigma Level</div>
+      </div>
+      <div style="margin-left:2rem;border-left:1px solid var(--border);padding-left:2rem;">
+        <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.25rem;">Sigma improvement</div>
+        <div style="font-size:1.5rem;font-weight:700;color:#10b981;" id="sigma-delta">—</div>
+        <div style="font-size:0.75rem;color:var(--muted);">levels gained</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Loading state -->
+  <div id="metrics-loading" style="text-align:center;padding:4rem 2rem;color:var(--muted);">
+    <div class="spinner" style="display:inline-block;width:28px;height:28px;border-color:var(--border-med);border-top-color:var(--primary);margin-bottom:1rem;"></div>
+    <p>Loading metrics...</p>
+  </div>
+</main>
+
+<script type="module">
+  import { requireAuth, auth, sessions } from './js/api.js';
+  import { setUser } from './js/state.js';
+
+  if (!requireAuth()) throw new Error('Not authenticated');
+
+  window.handleLogout = function() { auth.logout(); };
+
+  async function init() {
+    // Load user info
+    try {
+      const user = await auth.me();
+      if (!user) return;
+      setUser(user);
+      const initials = user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+      document.getElementById('user-avatar').textContent = initials;
+      document.getElementById('user-name').textContent = user.full_name;
+      document.getElementById('user-email').textContent = user.email;
+    } catch (e) { console.error('User load error:', e); }
+
+    const sessionId = localStorage.getItem('active_session');
+    document.getElementById('metrics-loading').style.display = 'none';
+
+    if (!sessionId) {
+      document.getElementById('no-session-state').style.display = 'block';
+      return;
+    }
+
+    try {
+      const report = await sessions.report(sessionId);
+      if (!report) return;
+      populateMetrics(report);
+    } catch (e) {
+      document.getElementById('metrics-subtitle').textContent = 'Failed to load: ' + e.message;
+    }
+  }
+
+  function populateMetrics(report) {
+    const kpi = report.kpi_report || {};
+    const ct  = kpi.cycle_time || {};
+    const hc  = kpi.human_count || {};
+    const ac  = kpi.automation_coverage || {};
+    const we  = kpi.waste_elimination || {};
+    const roi = kpi.roi || {};
+    const wa  = report.waste_analysis || {};
+
+    // Subtitle
+    const name = report.process_name || report.asis_process?.name || 'Process';
+    document.getElementById('metrics-subtitle').textContent = name;
+
+    // ── Top stats ───────────────────────────────────────
+    // Card 1: Time Saved
+    const minsSaved = ct.reduction_absolute || 0;
+    document.getElementById('mc-time-value').textContent = formatMinutes(minsSaved);
+    document.getElementById('mc-time-delta').textContent = ct.reduction_pct != null ? '+' + ct.reduction_pct + '% improvement' : '';
+
+    // Card 2: Annual hours saved
+    const annualHrs = roi.estimated_annual_saving_hrs ?? kpi.estimated_annual_saving_hrs ?? null;
+    document.getElementById('mc-hours-value').textContent = annualHrs != null ? annualHrs + ' hrs' : '—';
+    if (annualHrs != null) {
+      const monthly = Math.round(annualHrs / 12);
+      document.getElementById('mc-hours-sub').textContent = '~' + monthly + ' hrs/month saved';
+    }
+
+    // Card 3: Steps eliminated
+    const stepsEliminated = (hc.asis_value != null && hc.tobe_value != null)
+      ? (hc.asis_value - hc.tobe_value) + ' of ' + hc.asis_value
+      : '—';
+    document.getElementById('mc-steps-value').textContent = stepsEliminated;
+    if (hc.reduction_pct != null) {
+      document.getElementById('mc-steps-delta').textContent = '-' + hc.reduction_pct + '% reduction';
+    }
+
+    // ── Comparison bars ─────────────────────────────────
+    // Row 1: Cycle Time
+    if (ct.reduction_pct != null) {
+      const tobeWidth = Math.max(2, (1 - ct.reduction_pct / 100) * 100);
+      animateBar('bar-ct-tobe', tobeWidth);
+      document.getElementById('pct-ct').textContent = '-' + ct.reduction_pct + '%';
+    }
+
+    // Row 2: Manual Steps
+    if (hc.asis_value && hc.tobe_value != null) {
+      const hcPct = Math.round((1 - hc.tobe_value / hc.asis_value) * 100);
+      const tobeWidth = Math.max(2, (1 - hcPct / 100) * 100);
+      animateBar('bar-hc-tobe', tobeWidth);
+      document.getElementById('pct-hc').textContent = '-' + hcPct + '%';
+    }
+
+    // Row 3: Waste Eliminated
+    const wastePct = wa.waste_percentage || we.reduction_pct || null;
+    if (wastePct != null) {
+      const reduction = Math.round(wastePct * 0.8);
+      const tobeWidth = Math.max(2, 100 - reduction);
+      animateBar('bar-we-tobe', tobeWidth);
+      document.getElementById('pct-we').textContent = '-' + reduction + '%';
+    }
+
+    // Row 4: Automation Coverage
+    if (ac.asis_value != null && ac.tobe_value != null) {
+      animateBar('bar-ac-asis', ac.asis_value);
+      animateBar('bar-ac-tobe', ac.tobe_value);
+      document.getElementById('pct-ac').textContent = ac.tobe_value + '% automated';
+    }
+
+    // ── Sigma Level ─────────────────────────────────────
+    const sigmaAsis = kpi.sigma_level_asis ?? null;
+    const sigmaTobe = kpi.sigma_level_tobe ?? null;
+    document.getElementById('sigma-asis').textContent = sigmaAsis != null ? sigmaAsis.toFixed(1) + 'σ' : '—';
+    document.getElementById('sigma-tobe').textContent = sigmaTobe != null ? sigmaTobe.toFixed(1) + 'σ' : '—';
+    if (sigmaAsis != null && sigmaTobe != null) {
+      const delta = (sigmaTobe - sigmaAsis).toFixed(1);
+      document.getElementById('sigma-delta').textContent = '+' + delta;
+    }
+
+    document.getElementById('metrics-content').style.display = 'block';
+  }
+
+  function animateBar(id, widthPct) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.width = '0%';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.width = Math.min(100, Math.max(0, widthPct)) + '%';
+      });
+    });
+  }
+
+  function formatMinutes(mins) {
+    if (!mins) return '0 min';
+    if (mins < 60) return mins + ' min';
+    const hours = (mins / 60).toFixed(1);
+    if (mins < 1440) return hours + ' hrs';
+    const days = (mins / 1440).toFixed(1);
+    return days + ' days';
+  }
+
+  init();
+</script>
+</body>
+</html>

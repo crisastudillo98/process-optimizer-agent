@@ -81,7 +81,26 @@ Each agent node has a corresponding prompt module in `prompts/` (e.g., `prompts/
 
 ### Frontend
 
-`docs/app.html` is a standalone single-file web UI (HTML + CSS + JS, no build step). It calls the FastAPI backend and renders results including a dynamic BPMN diagram.
+The frontend is a multi-screen vanilla HTML/JS app with no build step. All files live in `docs/`. Shared CSS lives in `docs/css/main.css`; shared JS modules in `docs/js/`.
+
+**Screens:**
+- `docs/login.html` — Sign in / Create organization (auth entry point)
+- `docs/dashboard.html` — Process list, search, new-process drawer
+- `docs/workspace.html` — 3-panel: left nav, center chat, right living documentation (BPMN + KPIs + recommendations)
+- `docs/metrics.html` — Full metrics view with AS-IS vs TO-BE comparison bars and Sigma level
+
+**JS modules:**
+- `docs/js/api.js` — All fetch calls. Exports `auth`, `analyses`, `sessions`, `chat`, `requireAuth`, `apiBlob`. Every request includes `Authorization: Bearer <token>` from `localStorage`. Redirects to `login.html` on 401.
+- `docs/js/state.js` — In-memory state object (`user`, `currentSession`, `currentReport`, `processes`) shared across module imports within a page.
+
+**Auth flow:** `login.html` → POST `/auth/login` or `/auth/register` → store tokens → `dashboard.html` → choose/create process → `workspace.html` → optionally `metrics.html`.
+
+**localStorage keys:**
+- `access_token` — JWT Bearer token for API calls
+- `refresh_token` — stored for future refresh rotation
+- `active_session` — current session/analysis ID passed between dashboard → workspace → metrics
+
+`docs/app.html` is the legacy single-file UI, kept as a fallback (deprecated banner added).
 
 ## Environment setup
 

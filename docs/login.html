@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProcessOptimizer — Sign In</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body { display: block; overflow: auto; }
+    .auth-wrapper { overflow: auto; min-height: 100vh; }
+  </style>
+</head>
+<body>
+
+<div class="auth-wrapper">
+  <!-- Left brand panel -->
+  <div class="auth-left">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:2.5rem;">
+      <svg width="40" height="40" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#00d4aa" stroke-width="1.5" fill="none" opacity="0.5"/>
+        <path d="M16 8L22 14L16 20L10 14L16 8Z" fill="#00d4aa" fill-opacity="0.15" stroke="#00d4aa" stroke-width="1.5"/>
+        <circle cx="16" cy="14" r="2.5" fill="#00d4aa"/>
+        <path d="M16 17.5V21" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M14.5 19.5L16 21L17.5 19.5" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="logo-text" style="font-size:1.3rem;">Process<span>Optix</span> <span style="color:var(--muted);font-size:0.75rem;font-weight:500;">AI</span></span>
+    </div>
+
+    <h1 style="font-size:2rem;font-weight:800;letter-spacing:-0.04em;margin-bottom:1rem;line-height:1.2;">
+      Optimize, visualize,<br>and transform your<br>
+      <span style="color:var(--primary);">business processes</span>
+    </h1>
+    <p style="color:var(--muted);font-size:0.95rem;line-height:1.6;max-width:380px;">
+      AI-powered analysis using Lean Manufacturing, Six Sigma and Kaizen to eliminate waste and improve efficiency.
+    </p>
+
+    <div class="feature-pills">
+      <span class="feature-pill">Process Mapping</span>
+      <span class="feature-pill">AI Optimization</span>
+      <span class="feature-pill">Team Collaboration</span>
+      <span class="feature-pill">BPMN 2.0 Export</span>
+      <span class="feature-pill">KPI Analytics</span>
+    </div>
+
+    <div style="margin-top:3rem;padding:1.25rem;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;">
+      <p style="font-size:0.82rem;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--text);">"</strong>
+        ProcessOptix reduced our order fulfillment cycle time by 47% in just 3 weeks of implementation.
+        <strong style="color:var(--text);">"</strong>
+      </p>
+      <p style="font-size:0.75rem;color:var(--very-muted);margin-top:0.5rem;">— Operations Director, Manufacturing Co.</p>
+    </div>
+  </div>
+
+  <!-- Right auth panel -->
+  <div class="auth-right">
+    <div class="auth-card">
+      <!-- Error message -->
+      <div class="error-msg" id="error-msg"></div>
+
+      <!-- MODE A: Sign In -->
+      <div id="mode-signin">
+        <h2>Sign in</h2>
+        <p class="subtitle">Access your process workspaces</p>
+
+        <div class="auth-form-group">
+          <label for="signin-email">Email</label>
+          <input type="email" id="signin-email" placeholder="you@company.com" autocomplete="email">
+        </div>
+        <div class="auth-form-group">
+          <label for="signin-password">Password</label>
+          <input type="password" id="signin-password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <button class="btn-auth" id="signin-btn" onclick="doLogin()">
+          <span id="signin-text">Sign in →</span>
+          <span class="spinner" id="signin-spinner" style="border-top-color:#0a0a0f;"></span>
+        </button>
+
+        <div class="auth-switch">
+          Don't have an account?
+          <a onclick="switchMode('register')">Create organization</a>
+        </div>
+      </div>
+
+      <!-- MODE B: Create Organization -->
+      <div id="mode-register" style="display:none;">
+        <h2>Create your workspace</h2>
+        <p class="subtitle">Set up your organization account</p>
+
+        <div class="auth-form-group">
+          <label for="reg-name">Full name</label>
+          <input type="text" id="reg-name" placeholder="Jane Smith" autocomplete="name">
+        </div>
+        <div class="auth-form-group">
+          <label for="reg-email">Email</label>
+          <input type="email" id="reg-email" placeholder="you@company.com" autocomplete="email">
+        </div>
+        <div class="auth-form-group">
+          <label for="reg-password">Password <span style="color:var(--muted);font-weight:400;font-size:0.78rem;">(min 8 chars)</span></label>
+          <input type="password" id="reg-password" placeholder="••••••••" autocomplete="new-password">
+        </div>
+        <div class="auth-form-group">
+          <label for="reg-org-name">Organization name</label>
+          <input type="text" id="reg-org-name" placeholder="Acme Corp" oninput="autoSlug(this.value)">
+        </div>
+        <div class="auth-form-group">
+          <label for="reg-org-slug">Organization slug</label>
+          <input type="text" id="reg-org-slug" placeholder="acme-corp" pattern="[a-z0-9-]+" autocomplete="off">
+        </div>
+
+        <button class="btn-auth" id="register-btn" onclick="doRegister()">
+          <span id="register-text">Create workspace →</span>
+          <span class="spinner" id="register-spinner" style="border-top-color:#0a0a0f;"></span>
+        </button>
+
+        <div class="auth-switch">
+          Already have an account?
+          <a onclick="switchMode('signin')">Sign in</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { auth } from './js/api.js';
+
+  // Redirect if already authenticated
+  if (localStorage.getItem('access_token')) {
+    window.location.href = 'dashboard.html';
+  }
+
+  window.switchMode = function(mode) {
+    document.getElementById('error-msg').classList.remove('visible');
+    document.getElementById('error-msg').textContent = '';
+    if (mode === 'register') {
+      document.getElementById('mode-signin').style.display = 'none';
+      document.getElementById('mode-register').style.display = 'block';
+    } else {
+      document.getElementById('mode-register').style.display = 'none';
+      document.getElementById('mode-signin').style.display = 'block';
+    }
+  };
+
+  window.autoSlug = function(orgName) {
+    const slug = orgName.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+    document.getElementById('reg-org-slug').value = slug;
+  };
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+
+  function setLoading(btnId, spinnerId, textId, loading) {
+    document.getElementById(btnId).disabled = loading;
+    document.getElementById(spinnerId).style.display = loading ? 'inline-block' : 'none';
+    document.getElementById(textId).style.opacity = loading ? '0' : '1';
+  }
+
+  window.doLogin = async function() {
+    const email = document.getElementById('signin-email').value.trim();
+    const password = document.getElementById('signin-password').value;
+    if (!email || !password) { showError('Please fill in all fields.'); return; }
+
+    setLoading('signin-btn', 'signin-spinner', 'signin-text', true);
+    document.getElementById('error-msg').classList.remove('visible');
+
+    try {
+      const tokens = await auth.login(email, password);
+      if (!tokens) return;
+      localStorage.setItem('access_token', tokens.access_token);
+      localStorage.setItem('refresh_token', tokens.refresh_token);
+      window.location.href = 'dashboard.html';
+    } catch (e) {
+      showError(e.message || 'Invalid credentials. Please try again.');
+      setLoading('signin-btn', 'signin-spinner', 'signin-text', false);
+    }
+  };
+
+  window.doRegister = async function() {
+    const full_name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+    const org_name = document.getElementById('reg-org-name').value.trim();
+    const org_slug = document.getElementById('reg-org-slug').value.trim();
+
+    if (!full_name || !email || !password || !org_name || !org_slug) {
+      showError('Please fill in all fields.'); return;
+    }
+    if (password.length < 8) {
+      showError('Password must be at least 8 characters.'); return;
+    }
+
+    setLoading('register-btn', 'register-spinner', 'register-text', true);
+    document.getElementById('error-msg').classList.remove('visible');
+
+    try {
+      const tokens = await auth.register({ full_name, email, password, org_name, org_slug });
+      if (!tokens) return;
+      localStorage.setItem('access_token', tokens.access_token);
+      localStorage.setItem('refresh_token', tokens.refresh_token);
+      window.location.href = 'dashboard.html';
+    } catch (e) {
+      showError(e.message || 'Registration failed. Please try again.');
+      setLoading('register-btn', 'register-spinner', 'register-text', false);
+    }
+  };
+
+  // Enter key support
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    if (document.getElementById('mode-register').style.display !== 'none') {
+      window.doRegister();
+    } else {
+      window.doLogin();
+    }
+  });
+</script>
+</body>
+</html>

@@ -1721,6 +1721,17 @@ tbody tr:hover { background: var(--surface-2); }
 .sigma-label { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
 .sigma-arrow { font-size: 2rem; color: var(--border-med); }
 
+.report-section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--accent);
+}
+
 @media (max-width: 768px) {
   .auth-wrapper { grid-template-columns: 1fr; }
   .auth-left { display: none; }

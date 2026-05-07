@@ -232,6 +232,12 @@
 
     document.getElementById('left-process-id').textContent = 'ID: ' + sessionId.slice(0, 8) + '…';
 
+    // Show process name immediately from localStorage (updated again when report loads)
+    const earlyName = localStorage.getItem('active_process_name') || sessionId.slice(0, 8);
+    document.getElementById('ws-process-name').textContent = earlyName;
+    document.getElementById('left-process-name').textContent = earlyName;
+    document.title = earlyName + ' — ProcessOptix AI';
+
     // Enable send button when there's text
     document.getElementById('chat-input').addEventListener('input', function() {
       document.getElementById('chat-send-btn').disabled = !this.value.trim() || !window.__lastReport;

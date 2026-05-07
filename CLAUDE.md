@@ -46,17 +46,22 @@ The system is a LangGraph-based agent that transforms natural language process d
 All pipeline state flows through a single `AgentState` Pydantic model (`models/schemas.py`). Each graph node receives the full state and returns a dict of fields to update.
 
 ```
-load_document → extract_asis →[if ok]→ analyze_waste → retrieve_rag → optimize_tobe
+load_document → extract_asis →[if ok]→ generate_asis_bpmn → analyze_waste
+    → hitl_review_asis →[approved]→ retrieve_rag → optimize_tobe
     →[HITL_ENABLED]→ hitl_review →[approved/retries≥2]→ generate_bpmn → calculate_kpis
 ```
 
-The graph is compiled once at import time as `optimizer_graph` in `agent/orchestrator.py`. Routing conditions are in the same file (`route_after_extraction`, `route_after_optimization`, `route_after_hitl`).
+The graph is compiled once at import time as `optimizer_graph` in `agent/orchestrator.py`. Routing conditions are in the same file (`route_after_extraction`, `route_after_asis_hitl`, `route_after_optimization`, `route_after_hitl`).
 
-**HITL flow:** when `HITL_ENABLED=true`, the pipeline pauses at `hitl_review`. The `POST /sessions/{id}/review` endpoint injects the human decision into the in-memory `AgentState` and calls `_resume_pipeline` which re-invokes the graph with the same `thread_id`. Maximum 2 re-optimization retries before forcing continuation.
+**AS-IS HITL flow (Sprint 3):** after `analyze_waste`, the pipeline pauses at `hitl_review_asis`. The analyst reviews the extracted process via `GET /sessions/{id}/asis-review` and approves/rejects via `POST /sessions/{id}/asis-review`. If rejected with feedback, the pipeline re-runs `extract_asis` with the analyst's correction hint appended to `raw_input`. If approved (or no feedback), the pipeline continues to `retrieve_rag`.
+
+**TO-BE HITL flow:** when `HITL_ENABLED=true`, the pipeline pauses at `hitl_review`. The `POST /sessions/{id}/review` endpoint injects the human decision into the in-memory `AgentState` and calls `_resume_pipeline` which re-invokes the graph with the same `thread_id`. Maximum 2 re-optimization retries before forcing continuation.
+
+**HITL timeout:** an `asyncio` background task (`hitl_timeout_monitor`) runs on startup and checks every hour for sessions stalled in HITL for more than `HITL_TIMEOUT_HOURS` (default 24h). Timed-out sessions are marked `current_node="timed_out"`.
 
 ### Session storage
 
-Active sessions are stored in `_sessions: dict[str, AgentState]` in `api/main.py` (in-process memory — not shared across workers). Completed analyses are persisted to SQLite via SQLAlchemy (`storage/`). The comment in the code flags this as "replace with Redis in production."
+Active sessions are stored in `_sessions: dict[str, AgentState]` in `api/main.py` (in-process memory — not shared across workers). Completed analyses are persisted to SQLite via SQLAlchemy (`storage/`). **Session recovery (Sprint 3):** if a session is not in `_sessions` (e.g., after server restart), `_get_session()` checks SQLite via `repo.get_analysis()`. If found with `status="completed"`, it reconstructs a minimal `AgentState` via `repo.reconstruct_state_from_db()` and re-adds it to `_sessions`. The comment in the code flags this as "replace with Redis in production."
 
 ### LLM and embeddings
 
@@ -118,9 +123,26 @@ Database defaults to `sqlite:///storage/process_optimizer.db`. Set `DATABASE_URL
 
 Tests are marked with `@pytest.mark.integration` when they require live API keys and ChromaDB. All other tests use mocked LLM calls via fixtures in `conftest.py`.
 
+## Sprint 3 additions
+
+### New AgentState fields (`models/schemas.py`)
+- `hitl_asis_required: bool` — pipeline is paused at AS-IS HITL checkpoint
+- `hitl_asis_approved: bool` — analyst has approved the AS-IS extraction
+- `hitl_asis_feedback: str` — analyst's correction text (empty = no correction)
+- `hitl_asis_started_at: Optional[datetime]` — when the HITL checkpoint was reached
+- `bpmn_asis_output: Optional[str]` — file path to the generated AS-IS BPMN file
+
+### New API endpoints
+- `GET /sessions/{id}/asis-review` — returns `asis_process` dict + waste summary; requires `hitl_asis_required=True`
+- `POST /sessions/{id}/asis-review` — body: `{approved: bool, feedback: str}`; resumes pipeline
+- `GET /sessions/{id}/bpmn/asis` — returns AS-IS BPMN XML file download
+
+### New repository helper (`storage/repository.py`)
+- `reconstruct_state_from_db(record) -> dict` — builds minimal AgentState dict from SQLite `Analysis` record for session recovery
+
 ## Known limitations
 
-- Sessions are in-process memory; restarting the server loses active (non-persisted) sessions.
-- HITL sessions with no `/review` call will remain paused indefinitely (no timeout).
+- Sessions are in-process memory; restarting the server loses **active** (non-completed) sessions. Completed sessions are recovered from SQLite automatically.
+- HITL timeout monitor marks sessions `timed_out` after 24h but does not auto-resume or notify; the session simply stops progressing.
 - `perplexity` is present in `LLM_PROVIDER` enum but has no implementation — do not use.
 - VAR (Value-Added Ratio) can report 100% when all AS-IS activities are declared value-added.

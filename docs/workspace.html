@@ -268,9 +268,10 @@
       const status = await sessions.status(sessionId);
       if (!status) return;
 
-      const name = status.process_name || sessionId.slice(0, 8);
-      document.getElementById('ws-process-name').textContent = name;
-      document.getElementById('left-process-name').textContent = name;
+      if (status.process_name) {
+        document.getElementById('ws-process-name').textContent = status.process_name;
+        document.getElementById('left-process-name').textContent = status.process_name;
+      }
 
       // Check HITL flags — AS-IS takes priority
       if (status.hitl_asis_required && !status.hitl_asis_approved && !asisBannerDismissed) {
@@ -639,13 +640,16 @@
       loader.remove();
       if (res) {
         appendBubble(res.respuesta, 'agent');
-        if (window.__lastReport?.kpi_ok && hasActionKeywords(msg)) {
+        if (window.__lastReport && hasActionKeywords(msg)) {
           showApplyPrompt(msg);
         }
       }
     } catch (e) {
       loader.remove();
-      appendBubble('Error: ' + e.message, 'agent');
+      const msg429 = e.message.includes('429') || e.message.toLowerCase().includes('rate limit')
+        ? '⏳ Rate limit reached. Please wait a moment and try again.'
+        : 'Error: ' + e.message;
+      appendBubble(msg429, 'agent');
     }
 
     document.getElementById('chat-send-btn').disabled = !input.value.trim();
@@ -788,7 +792,9 @@
   // ── BPMN Refinement ──────────────────────────────────
   const ACTION_KEYWORDS = [
     'modify','change','remove','add','update','eliminate','replace','apply','implement',
-    'cambiar','eliminar','agregar','modificar','aplicar','añadir','quitar','reemplazar'
+    'cambiar','eliminar','elimina','agregar','agrega','modificar','modifica','aplicar',
+    'añadir','añade','quitar','quita','reemplazar','reemplaza','combinar','combina',
+    'automatizar','automatiza'
   ];
 
   function hasActionKeywords(msg) {

@@ -122,6 +122,19 @@ export const sessions = {
   },
   review: (id, approved, feedback = '') =>
     apiRequest('POST', `/sessions/${id}/review`, { approved, feedback }),
+  asisReview: (id) =>
+    apiRequest('GET', `/sessions/${id}/asis-review`),
+  asisApprove: (id, approved, feedback = '') =>
+    apiRequest('POST', `/sessions/${id}/asis-review`, { approved, feedback }),
+  bpmnAsis: async (id, filename = 'process_asis.bpmn') => {
+    const blob = await apiBlob(`/sessions/${id}/bpmn/asis`);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
   delete: (id) =>
     apiRequest('DELETE', `/sessions/${id}`)
 };

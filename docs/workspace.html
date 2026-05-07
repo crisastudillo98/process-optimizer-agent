@@ -47,14 +47,22 @@
   <div class="hitl-banner" id="hitl-banner" style="display:none;">
     <div style="flex:1;min-width:0;">
       <div>
-        <span class="hitl-label">⏸ Review Required — </span>
+        <span class="hitl-label" id="hitl-banner-label">⏸ Review Required — </span>
         <span id="hitl-banner-text">Optimization proposal needs your approval</span>
       </div>
       <div id="hitl-process-info" style="margin-top:0.35rem;font-size:0.78rem;opacity:0.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+      <!-- AS-IS activity chips — shown only during AS-IS review -->
+      <div id="hitl-asis-activities" style="display:none;margin-top:0.5rem;font-size:0.75rem;flex-wrap:wrap;gap:0.3rem;"></div>
+      <!-- Rejection feedback form -->
+      <div id="hitl-reject-form" style="display:none;margin-top:0.5rem;">
+        <textarea id="hitl-feedback-input" rows="2" style="width:100%;font-size:0.78rem;padding:0.35rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);resize:none;" placeholder="Describe what needs to be corrected…"></textarea>
+        <button class="btn-approve" style="margin-top:0.35rem;" onclick="confirmReject()">Send Feedback</button>
+        <button class="btn-reject" style="margin-top:0.35rem;margin-left:0.5rem;" onclick="cancelReject()">Cancel</button>
+      </div>
     </div>
     <div class="hitl-actions">
       <button class="btn-approve" id="hitl-approve-btn" onclick="approveHITL()">✓ Approve</button>
-      <button class="btn-reject" id="hitl-reject-btn" onclick="rejectHITL()">✗ Reject</button>
+      <button class="btn-reject" id="hitl-reject-btn" onclick="rejectHITL()">✗ Needs correction</button>
     </div>
   </div>
 
@@ -204,7 +212,9 @@
 
   let bpmnViewer = null;
   let bpmnXml = null;
+  let bpmnAsisXml = null;
   let pollTimer = null;
+  let __hitlMode = null; // 'asis' or 'tobe'
 
   // ── Init ──────────────────────────────────────────────
   async function init() {
@@ -235,9 +245,21 @@
       document.getElementById('ws-process-name').textContent = name;
       document.getElementById('left-process-name').textContent = name;
 
-      // Check HITL flags
-      if (status.hitl_required) {
+      // Check HITL flags — AS-IS takes priority
+      if (status.hitl_asis_required && !status.hitl_asis_approved) {
+        __hitlMode = 'asis';
+        await showAsisReviewBanner();
+        document.getElementById('ws-status-label').textContent = 'Waiting for AS-IS review…';
+        pollTimer = setTimeout(pollStatus, 5000);
+        return;
+      } else if (status.hitl_required && !status.hitl_approved) {
+        __hitlMode = 'tobe';
         await showHitlBanner('Review the proposed TO-BE optimization before continuing');
+        document.getElementById('ws-status-label').textContent = 'Waiting for TO-BE approval…';
+        pollTimer = setTimeout(pollStatus, 5000);
+        return;
+      } else {
+        document.getElementById('hitl-banner').style.display = 'none';
       }
 
       if (status.kpi_ok) {
@@ -293,13 +315,19 @@
       document.getElementById('bpmn-zoom-controls').style.display = 'flex';
 
       bpmnViewer = new BpmnJS({ container });
-      const { warnings } = await bpmnViewer.importXML(bpmnXml);
+      await bpmnViewer.importXML(bpmnXml);
       bpmnViewer.get('canvas').zoom('fit-viewport');
 
       // Count flow nodes for badge
       const matches = bpmnXml.match(/<(bpmn:|)(task|userTask|serviceTask|exclusiveGateway|parallelGateway|startEvent|endEvent)/g);
       const count = matches ? matches.length : 0;
-      document.getElementById('bpmn-step-badge').textContent = count + ' elements';
+      document.getElementById('bpmn-step-badge').textContent = count + ' elements (TO-BE)';
+
+      // Load AS-IS BPMN in background
+      try {
+        const asisBlob = await apiBlob(`/sessions/${sessionId}/bpmn/asis`);
+        bpmnAsisXml = await asisBlob.text();
+      } catch(_) { /* AS-IS BPMN optional */ }
     } catch (e) {
       document.getElementById('bpmn-loading').textContent = 'BPMN not yet available.';
     }
@@ -313,11 +341,15 @@
     else canvas.zoom(canvas.zoom() * 0.8);
   };
 
-  window.switchBpmnView = function(view, el) {
+  window.switchBpmnView = async function(view, el) {
     document.querySelectorAll('.bpmn-subtab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
-    // For now both sub-tabs show the same XML (single BPMN endpoint)
-    if (bpmnViewer) bpmnViewer.get('canvas').zoom('fit-viewport');
+    const xml = view === 'asis' ? bpmnAsisXml : bpmnXml;
+    if (!bpmnViewer || !xml) return;
+    try {
+      await bpmnViewer.importXML(xml);
+      bpmnViewer.get('canvas').zoom('fit-viewport');
+    } catch(_) {}
   };
 
   window.downloadBpmn = async function() {
@@ -328,49 +360,141 @@
   function populateRightPanel(report) {
     const kpi = report.kpi_report || {};
     const ct = kpi.cycle_time || {};
-    const hc = kpi.human_count || {};
+    const hc = kpi.headcount || {};
     const ac = kpi.automation_coverage || {};
-    const we = kpi.waste_elimination || {};
+    const wr = kpi.waste_reduction || {};
 
-    // Metrics tab
-    document.getElementById('metrics-content').innerHTML = `
+    // ── Metrics tab ───────────────────────────────────
+    let metricsHtml = `
       <div class="kpi-mini-card">
-        <div class="kpi-mini-label">Cycle Time Reduction</div>
-        <div class="kpi-mini-value">${ct.reduction_pct != null ? ct.reduction_pct + '%' : '—'}</div>
-        <div class="kpi-mini-delta">↓ ${ct.reduction_absolute || 0} min saved per cycle</div>
+        <div class="kpi-mini-label">Cycle Time</div>
+        <div class="kpi-mini-value">${ct.reduction_pct != null ? ct.reduction_pct + '% reduction' : '—'}</div>
+        <div class="kpi-mini-delta">↓ ${ct.asis_value || '?'} min → ${ct.tobe_value || '?'} min</div>
       </div>
       <div class="kpi-mini-card">
         <div class="kpi-mini-label">Manual Steps</div>
-        <div class="kpi-mini-value">${hc.asis_value != null ? hc.asis_value + '→' + hc.tobe_value : '—'}</div>
-        <div class="kpi-mini-delta">↓ ${hc.reduction_pct != null ? hc.reduction_pct + '% reduction' : ''}</div>
+        <div class="kpi-mini-value">${hc.reduction_pct != null ? hc.reduction_pct + '% reduction' : '—'}</div>
+        <div class="kpi-mini-delta">↓ ${hc.asis_value || '?'} → ${hc.tobe_value || '?'} steps</div>
       </div>
       <div class="kpi-mini-card">
         <div class="kpi-mini-label">Waste Eliminated</div>
-        <div class="kpi-mini-value">${we.reduction_pct != null ? we.reduction_pct + '%' : '—'}</div>
+        <div class="kpi-mini-value">${wr.reduction_pct != null ? wr.reduction_pct + '%' : '—'}</div>
         <div class="kpi-mini-delta">Lean waste removed</div>
       </div>
       <div class="kpi-mini-card">
         <div class="kpi-mini-label">Automation Coverage</div>
         <div class="kpi-mini-value">${ac.tobe_value != null ? ac.tobe_value + '%' : '—'}</div>
-        <div class="kpi-mini-delta">↑ from ${ac.asis_value != null ? ac.asis_value + '%' : '—'}</div>
+        <div class="kpi-mini-delta">↑ from ${ac.asis_value != null ? ac.asis_value + '%' : '0%'}</div>
       </div>`;
 
-    // Recommendations tab
-    const wins = (report.waste_analysis && report.waste_analysis.kaizen_quick_wins) || [];
-    if (wins.length === 0) {
-      document.getElementById('recs-content').innerHTML =
-        '<div style="color:var(--muted);font-size:0.82rem;">No recommendations available.</div>';
-    } else {
-      document.getElementById('recs-content').innerHTML = wins.map(w =>
-        `<div class="rec-card"><span class="rec-icon">⚡</span><span>${escHtml(String(w))}</span></div>`
+    if (kpi.sigma_level_asis != null) {
+      metricsHtml += `
+      <div class="kpi-mini-card">
+        <div class="kpi-mini-label">Sigma Level</div>
+        <div class="kpi-mini-value">${kpi.sigma_level_asis}σ → ${kpi.sigma_level_tobe}σ</div>
+        <div class="kpi-mini-delta" style="color:#10b981;">↑ improved</div>
+      </div>`;
+    }
+
+    if (kpi.estimated_annual_saving_hrs != null) {
+      metricsHtml += `
+      <div class="kpi-mini-card">
+        <div class="kpi-mini-label">Annual Savings</div>
+        <div class="kpi-mini-value">${kpi.estimated_annual_saving_hrs} hrs/year</div>
+        <div class="kpi-mini-delta">${kpi.estimated_roi_pct != null ? kpi.estimated_roi_pct + '% ROI' : ''}</div>
+      </div>`;
+    }
+
+    document.getElementById('metrics-content').innerHTML = metricsHtml;
+
+    // ── Recommendations tab ───────────────────────────
+    const wa = report.waste_analysis || {};
+    const actDetails = wa.activity_details || [];
+    const wins = wa.kaizen_quick_wins || [];
+    const tobe = report.tobe_process || {};
+    const tobeActivities = tobe.activities || [];
+
+    const wastes = actDetails.filter(a => a.waste_classification === 'desperdicio');
+    const automations = tobeActivities.filter(a => a.status === 'automatizada');
+
+    const badgeColor = {
+      'espera': '#f59e0b',
+      'sobreproceso': '#ef4444',
+      'defectos': '#ef4444',
+      'movimiento': '#eab308',
+    };
+
+    let recsHtml = '';
+
+    if (wastes.length > 0) {
+      recsHtml += `<div class="panel-section-title" style="margin-bottom:0.5rem;">WASTES DETECTED</div>`;
+      recsHtml += wastes.map(a => {
+        const color = badgeColor[a.waste_type] || '#6b7280';
+        return `<div class="rec-card" style="margin-bottom:0.5rem;">
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
+            <span style="font-weight:600;font-size:0.82rem;">${escHtml(a.activity_name)}</span>
+            ${a.waste_type ? `<span style="font-size:0.7rem;padding:0.1rem 0.4rem;border-radius:4px;background:${color};color:#fff;">${escHtml(a.waste_type)}</span>` : ''}
+          </div>
+          <div style="font-size:0.78rem;color:var(--muted);">${escHtml(a.waste_justification || '')}</div>
+        </div>`;
+      }).join('');
+    }
+
+    if (wins.length > 0) {
+      recsHtml += `<div class="panel-section-title" style="margin-top:1rem;margin-bottom:0.5rem;">QUICK WINS</div>`;
+      recsHtml += wins.map(w =>
+        `<div class="rec-card" style="border-left:3px solid #14b8a6;"><span class="rec-icon">⚡</span><span>${escHtml(String(w))}</span></div>`
       ).join('');
     }
+
+    if (automations.length > 0) {
+      recsHtml += `<div class="panel-section-title" style="margin-top:1rem;margin-bottom:0.5rem;">AUTOMATION OPPORTUNITIES</div>`;
+      recsHtml += automations.map(a =>
+        `<div class="rec-card"><span class="rec-icon">🤖</span><div><span style="font-weight:600;">${escHtml(a.name)}</span>${a.automation_tool ? `<div style="font-size:0.75rem;color:var(--muted);">Tool: ${escHtml(a.automation_tool)}</div>` : ''}</div></div>`
+      ).join('');
+    }
+
+    if (!recsHtml) {
+      recsHtml = '<div style="color:var(--muted);font-size:0.82rem;">No recommendations available.</div>';
+    }
+
+    document.getElementById('recs-content').innerHTML = recsHtml;
   }
 
   // ── HITL ─────────────────────────────────────────────
+  async function showAsisReviewBanner() {
+    const banner = document.getElementById('hitl-banner');
+    banner.style.cssText = banner.style.cssText + ';background:rgba(250,204,21,0.12);border-color:#fbbf24;';
+    document.getElementById('hitl-banner-label').textContent = '⏸ AS-IS Review — ';
+    document.getElementById('hitl-banner-text').textContent =
+      'Verify the extracted process before optimization continues';
+    document.getElementById('hitl-approve-btn').textContent = '✓ Looks correct';
+    document.getElementById('hitl-reject-btn').textContent = '✗ Needs correction';
+    banner.style.display = 'flex';
+
+    try {
+      const review = await sessions.asisReview(sessionId);
+      if (review && review.asis_process) {
+        const p = review.asis_process;
+        document.getElementById('hitl-process-info').textContent =
+          `${p.name} — ${(p.activities || []).length} activities — ${p.total_duration_min || '?'} min total`;
+        const chips = (p.activities || []).map(a =>
+          `<span style="display:inline-block;margin:0.15rem;padding:0.15rem 0.45rem;background:var(--border);border-radius:4px;font-size:0.72rem;">${escHtml(a.name)}</span>`
+        ).join('');
+        const act = document.getElementById('hitl-asis-activities');
+        act.innerHTML = chips;
+        act.style.display = 'block';
+      }
+    } catch(_) { /* asis-review data not yet available — banner still shows */ }
+  }
+
   async function showHitlBanner(msg) {
+    const banner = document.getElementById('hitl-banner');
+    document.getElementById('hitl-banner-label').textContent = '⏸ Review Required — ';
     document.getElementById('hitl-banner-text').textContent = msg;
-    document.getElementById('hitl-banner').style.display = 'flex';
+    document.getElementById('hitl-approve-btn').textContent = '✓ Approve';
+    document.getElementById('hitl-reject-btn').textContent = '✗ Reject';
+    banner.style.display = 'flex';
     try {
       const proc = await sessions.process(sessionId);
       if (proc) {
@@ -379,15 +503,21 @@
         document.getElementById('hitl-process-info').textContent =
           `${proc.name} — ${actCount} activities: ${actNames}`;
       }
-    } catch(_) { /* process not yet available — banner still shows */ }
+    } catch(_) {}
   }
 
   window.approveHITL = async function() {
     try {
       document.getElementById('hitl-approve-btn').disabled = true;
-      await sessions.review(sessionId, true);
-      document.getElementById('hitl-banner').style.display = 'none';
-      document.getElementById('ws-status-label').textContent = 'Approved — resuming analysis…';
+      if (__hitlMode === 'asis') {
+        await sessions.asisApprove(sessionId, true);
+        document.getElementById('ws-status-label').textContent = 'AS-IS approved — generating TO-BE…';
+      } else {
+        await sessions.review(sessionId, true);
+        document.getElementById('ws-status-label').textContent = 'Approved — resuming analysis…';
+      }
+      _hideBanner();
+      __hitlMode = null;
       await pollStatus();
     } catch (e) {
       alert('Error: ' + e.message);
@@ -395,19 +525,50 @@
     }
   };
 
-  window.rejectHITL = async function() {
-    const feedback = prompt('Feedback for rejection (optional):') || '';
+  window.rejectHITL = function() {
+    document.getElementById('hitl-reject-form').style.display = 'block';
+    document.getElementById('hitl-approve-btn').style.display = 'none';
+    document.getElementById('hitl-reject-btn').style.display = 'none';
+  };
+
+  window.cancelReject = function() {
+    document.getElementById('hitl-reject-form').style.display = 'none';
+    document.getElementById('hitl-feedback-input').value = '';
+    document.getElementById('hitl-approve-btn').style.display = '';
+    document.getElementById('hitl-reject-btn').style.display = '';
+  };
+
+  window.confirmReject = async function() {
+    const feedback = document.getElementById('hitl-feedback-input').value.trim();
     try {
       document.getElementById('hitl-reject-btn').disabled = true;
-      await sessions.review(sessionId, false, feedback);
-      document.getElementById('hitl-banner').style.display = 'none';
-      document.getElementById('ws-status-label').textContent = 'Rejected — re-optimizing…';
+      if (__hitlMode === 'asis') {
+        await sessions.asisApprove(sessionId, false, feedback);
+        document.getElementById('ws-status-label').textContent = 'AS-IS rejected — re-extracting…';
+      } else {
+        if (!feedback) { alert('Please provide feedback for rejection.'); return; }
+        await sessions.review(sessionId, false, feedback);
+        document.getElementById('ws-status-label').textContent = 'Rejected — re-optimizing…';
+      }
+      _hideBanner();
+      __hitlMode = null;
       await pollStatus();
     } catch (e) {
       alert('Error: ' + e.message);
       document.getElementById('hitl-reject-btn').disabled = false;
     }
   };
+
+  function _hideBanner() {
+    document.getElementById('hitl-banner').style.display = 'none';
+    document.getElementById('hitl-asis-activities').style.display = 'none';
+    document.getElementById('hitl-reject-form').style.display = 'none';
+    document.getElementById('hitl-feedback-input').value = '';
+    document.getElementById('hitl-approve-btn').disabled = false;
+    document.getElementById('hitl-approve-btn').style.display = '';
+    document.getElementById('hitl-reject-btn').disabled = false;
+    document.getElementById('hitl-reject-btn').style.display = '';
+  }
 
   // ── Chat ─────────────────────────────────────────────
   window.handleChatKey = function(e) {

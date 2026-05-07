@@ -3,12 +3,116 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ProcessOptimizer — Metrics</title>
+  <title>ProcessOptimizer — Full Metrics</title>
   <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
   <style>
     body { overflow: hidden; }
     #main { overflow-y: auto; padding: 2rem; }
+
+    .report-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .report-section-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--primary);
+      text-transform: uppercase;
+      margin-bottom: 1.1rem;
+    }
+    .exec-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem 2rem;
+      margin-top: 1rem;
+    }
+    .exec-row { display: flex; flex-direction: column; gap: 0.15rem; }
+    .exec-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .exec-value { font-size: 0.88rem; font-weight: 500; }
+    .exec-summary-text {
+      font-size: 0.87rem;
+      line-height: 1.75;
+      color: var(--text);
+      padding: 1rem 1.1rem;
+      background: var(--bg);
+      border-left: 3px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 1.25rem;
+    }
+
+    .kpi-2x2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .kpi-big-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.1rem 1.2rem;
+    }
+    .kpi-big-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; }
+    .kpi-big-value { font-size: 1.75rem; font-weight: 700; color: var(--primary); line-height: 1; margin-bottom: 0.35rem; }
+    .kpi-big-sub { font-size: 0.77rem; color: var(--muted); }
+
+    .report-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .report-table th {
+      font-size: 0.67rem; font-weight: 700; letter-spacing: 0.07em;
+      text-transform: uppercase; color: var(--muted); text-align: left;
+      padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border);
+    }
+    .report-table td { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .report-table tr:last-child td { border-bottom: none; }
+    .report-table tr:hover td { background: var(--bg); }
+
+    .status-badge {
+      display: inline-block; font-size: 0.67rem; font-weight: 700;
+      padding: 0.15rem 0.55rem; border-radius: 20px; letter-spacing: 0.04em;
+    }
+    .badge-automatizada { background: rgba(0,212,170,0.12); color: #00d4aa; }
+    .badge-eliminada    { background: rgba(239,68,68,0.12);  color: #ef4444; }
+    .badge-optimizada   { background: rgba(59,130,246,0.12); color: #3b82f6; }
+    .badge-conservada   { background: rgba(148,163,184,0.12); color: #94a3b8; }
+    .badge-combinada    { background: rgba(168,85,247,0.12); color: #a855f7; }
+    .badge-nueva        { background: rgba(34,197,94,0.12);  color: #22c55e; }
+    .class-badge-va     { background: rgba(16,185,129,0.12); color: #10b981; }
+    .class-badge-waste  { background: rgba(239,68,68,0.12);  color: #ef4444; }
+    .class-badge-info   { background: rgba(245,158,11,0.12); color: #f59e0b; }
+
+    .tech-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 1rem; }
+    .tech-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem;
+    }
+    .tech-card-activity { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.35rem; }
+    .tech-card-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .tech-tools { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.6rem; }
+    .tech-tool-badge {
+      font-size: 0.7rem; padding: 0.15rem 0.5rem;
+      background: rgba(0,212,170,0.1); color: var(--primary);
+      border-radius: 4px; font-weight: 600;
+    }
+    .tech-meta { font-size: 0.75rem; color: var(--muted); line-height: 1.55; }
+
+    .roi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+    .roi-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .roi-stat { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem; }
+    .roi-stat-label { font-size: 0.67rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.25rem; }
+    .roi-stat-value { font-size: 1.3rem; font-weight: 700; }
+    .roi-stat-sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.15rem; }
+
+    .year-bars-title { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.75rem; }
+    .year-bar-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.7rem; }
+    .year-bar-label { font-size: 0.78rem; color: var(--muted); width: 48px; flex-shrink: 0; }
+    .year-bar-track { flex: 1; height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+    .year-bar-fill { height: 100%; background: var(--primary); border-radius: 5px; transition: width 0.9s ease; width: 0%; }
+    .year-bar-value { font-size: 0.78rem; font-weight: 600; width: 90px; flex-shrink: 0; text-align: right; }
   </style>
 </head>
 <body>
@@ -66,7 +170,8 @@
 
 <!-- Main content -->
 <main id="main">
-  <!-- Header -->
+
+  <!-- Page Header -->
   <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.75rem;">
     <div>
       <a href="workspace.html" class="back-link" style="display:inline-flex;align-items:center;gap:0.4rem;margin-bottom:0.75rem;font-size:0.85rem;color:var(--muted);">
@@ -75,9 +180,13 @@
         </svg>
         Back to Workspace
       </a>
-      <div class="page-title" style="margin-bottom:0.25rem;">Process Metrics</div>
-      <div class="page-sub" id="metrics-subtitle" style="margin-bottom:0;">Loading analysis...</div>
+      <div class="page-title" id="met-process-name" style="margin-bottom:0.2rem;">Executive Report</div>
+      <div style="font-size:0.82rem;color:var(--muted);" id="met-meta">—</div>
     </div>
+    <button class="btn-secondary" disabled title="Export to PDF — Coming in Sprint 4"
+      style="font-size:0.8rem;padding:0.4rem 1rem;opacity:0.5;cursor:not-allowed;">
+      ↓ Export PDF
+    </button>
   </div>
 
   <!-- No session state -->
@@ -85,135 +194,250 @@
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:3rem;text-align:center;max-width:480px;">
       <div style="font-size:2rem;margin-bottom:1rem;">📊</div>
       <h3 style="margin-bottom:0.5rem;">No process selected</h3>
-      <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1.5rem;">Select a process from the dashboard first to view its metrics.</p>
+      <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1.5rem;">Select a process from the dashboard first.</p>
       <a href="dashboard.html" class="btn-new" style="display:inline-block;padding:0.6rem 1.25rem;text-decoration:none;">Go to Dashboard</a>
     </div>
   </div>
 
-  <!-- Metrics content (hidden until loaded) -->
-  <div id="metrics-content" style="display:none;">
-
-    <!-- Top stats row -->
-    <div class="metrics-grid">
-      <!-- Card 1: Time Saved -->
-      <div class="metric-card">
-        <div class="metric-card-label">Time Saved</div>
-        <div class="metric-card-value" id="mc-time-value">—</div>
-        <div class="metric-card-delta" id="mc-time-delta"></div>
-        <div class="metric-card-sub">Per process cycle reduction</div>
-      </div>
-
-      <!-- Card 2: Cost Reduction -->
-      <div class="metric-card">
-        <div class="metric-card-label">Annual Hours Saved</div>
-        <div class="metric-card-value" id="mc-hours-value">—</div>
-        <div class="metric-card-delta" id="mc-hours-delta"></div>
-        <div class="metric-card-sub" id="mc-hours-sub">Monthly savings estimate</div>
-      </div>
-
-      <!-- Card 3: Steps Eliminated -->
-      <div class="metric-card">
-        <div class="metric-card-label">Process Steps Automated</div>
-        <div class="metric-card-value" id="mc-steps-value">—</div>
-        <div class="metric-card-delta" id="mc-steps-delta"></div>
-        <div class="metric-card-sub">Manual steps eliminated</div>
-      </div>
-    </div>
-
-    <!-- AS-IS vs TO-BE Comparison -->
-    <div class="comparison-section">
-      <div class="comparison-section-title">AS-IS VS TO-BE COMPARISON</div>
-
-      <!-- Row 1: Cycle Time -->
-      <div class="comparison-bar-row">
-        <div class="comparison-bar-label">Cycle Time</div>
-        <div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
-          <div class="bar-track" style="margin-bottom:4px;">
-            <div class="bar-asis" id="bar-ct-asis" style="width:100%;"></div>
-          </div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
-          <div class="bar-track">
-            <div class="bar-tobe" id="bar-ct-tobe" style="width:0%;"></div>
-          </div>
-        </div>
-        <div class="comparison-bar-pct" id="pct-ct">—</div>
-      </div>
-
-      <!-- Row 2: Manual Steps -->
-      <div class="comparison-bar-row">
-        <div class="comparison-bar-label">Manual Steps</div>
-        <div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
-          <div class="bar-track" style="margin-bottom:4px;">
-            <div class="bar-asis" id="bar-hc-asis" style="width:100%;"></div>
-          </div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
-          <div class="bar-track">
-            <div class="bar-tobe" id="bar-hc-tobe" style="width:0%;"></div>
-          </div>
-        </div>
-        <div class="comparison-bar-pct" id="pct-hc">—</div>
-      </div>
-
-      <!-- Row 3: Waste Eliminated -->
-      <div class="comparison-bar-row">
-        <div class="comparison-bar-label">Waste Level</div>
-        <div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
-          <div class="bar-track" style="margin-bottom:4px;">
-            <div class="bar-asis" id="bar-we-asis" style="width:100%;"></div>
-          </div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
-          <div class="bar-track">
-            <div class="bar-tobe" id="bar-we-tobe" style="width:0%;"></div>
-          </div>
-        </div>
-        <div class="comparison-bar-pct" id="pct-we">—</div>
-      </div>
-
-      <!-- Row 4: Automation Coverage -->
-      <div class="comparison-bar-row">
-        <div class="comparison-bar-label">Automation Coverage</div>
-        <div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
-          <div class="bar-track" style="margin-bottom:4px;">
-            <div class="bar-asis" id="bar-ac-asis" style="width:0%;background:#94a3b8;"></div>
-          </div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
-          <div class="bar-track">
-            <div class="bar-tobe" id="bar-ac-tobe" style="width:0%;"></div>
-          </div>
-        </div>
-        <div class="comparison-bar-pct" id="pct-ac">—</div>
-      </div>
-    </div>
-
-    <!-- Sigma Level -->
-    <div class="sigma-section">
-      <div class="sigma-item">
-        <div class="sigma-level asis" id="sigma-asis">—</div>
-        <div class="sigma-label">AS-IS Sigma Level</div>
-      </div>
-      <div class="sigma-arrow">→</div>
-      <div class="sigma-item">
-        <div class="sigma-level tobe" id="sigma-tobe">—</div>
-        <div class="sigma-label">TO-BE Sigma Level</div>
-      </div>
-      <div style="margin-left:2rem;border-left:1px solid var(--border);padding-left:2rem;">
-        <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.25rem;">Sigma improvement</div>
-        <div style="font-size:1.5rem;font-weight:700;color:#10b981;" id="sigma-delta">—</div>
-        <div style="font-size:0.75rem;color:var(--muted);">levels gained</div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Loading state -->
+  <!-- Loading -->
   <div id="metrics-loading" style="text-align:center;padding:4rem 2rem;color:var(--muted);">
     <div class="spinner" style="display:inline-block;width:28px;height:28px;border-color:var(--border-med);border-top-color:var(--primary);margin-bottom:1rem;"></div>
-    <p>Loading metrics...</p>
+    <p>Loading report…</p>
   </div>
+
+  <!-- Full report (hidden until loaded) -->
+  <div id="metrics-content" style="display:none;">
+
+    <!-- ── SECTION 1: Executive Summary ──────────────────────────── -->
+    <div class="report-section">
+      <div class="report-section-title">01 — Executive Summary</div>
+      <div class="exec-summary-text" id="exec-summary-text">—</div>
+      <div class="exec-grid">
+        <div class="exec-row">
+          <div class="exec-label">Process</div>
+          <div class="exec-value" id="exec-process">—</div>
+        </div>
+        <div class="exec-row">
+          <div class="exec-label">Department / Owner</div>
+          <div class="exec-value" id="exec-dept">—</div>
+        </div>
+        <div class="exec-row">
+          <div class="exec-label">Objective</div>
+          <div class="exec-value" id="exec-objective" style="font-size:0.8rem;color:var(--muted);">—</div>
+        </div>
+        <div class="exec-row">
+          <div class="exec-label">AS-IS Duration</div>
+          <div class="exec-value" id="exec-asis-dur">—</div>
+        </div>
+        <div class="exec-row">
+          <div class="exec-label">TO-BE Duration</div>
+          <div class="exec-value" id="exec-tobe-dur">—</div>
+        </div>
+        <div class="exec-row">
+          <div class="exec-label">Total Improvement</div>
+          <div class="exec-value" id="exec-improvement" style="color:var(--primary);font-size:1.1rem;font-weight:700;">—</div>
+        </div>
+        <div class="exec-row">
+          <div class="exec-label">Sigma Level</div>
+          <div class="exec-value" id="exec-sigma">—</div>
+        </div>
+        <div class="exec-row">
+          <div class="exec-label">Report Generated</div>
+          <div class="exec-value" id="exec-date" style="color:var(--muted);">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECTION 2: KPI Dashboard ──────────────────────────────── -->
+    <div class="report-section">
+      <div class="report-section-title">02 — KPI Dashboard</div>
+      <div class="kpi-2x2">
+        <div class="kpi-big-card">
+          <div class="kpi-big-label">Cycle Time Reduction</div>
+          <div class="kpi-big-value" id="kpi-ct-pct">—</div>
+          <div class="kpi-big-sub" id="kpi-ct-sub"></div>
+        </div>
+        <div class="kpi-big-card">
+          <div class="kpi-big-label">Manual Steps Reduction</div>
+          <div class="kpi-big-value" id="kpi-hc-pct">—</div>
+          <div class="kpi-big-sub" id="kpi-hc-sub"></div>
+        </div>
+        <div class="kpi-big-card">
+          <div class="kpi-big-label">Waste Eliminated (Muda)</div>
+          <div class="kpi-big-value" id="kpi-wr-pct">—</div>
+          <div class="kpi-big-sub" id="kpi-wr-sub"></div>
+        </div>
+        <div class="kpi-big-card">
+          <div class="kpi-big-label">Automation Coverage</div>
+          <div class="kpi-big-value" id="kpi-ac-val">—</div>
+          <div class="kpi-big-sub" id="kpi-ac-sub"></div>
+        </div>
+      </div>
+
+      <!-- AS-IS vs TO-BE comparison bars -->
+      <div class="comparison-section">
+        <div class="comparison-section-title">AS-IS VS TO-BE COMPARISON</div>
+
+        <div class="comparison-bar-row">
+          <div class="comparison-bar-label">Cycle Time</div>
+          <div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
+            <div class="bar-track" style="margin-bottom:4px;"><div class="bar-asis" style="width:100%;"></div></div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
+            <div class="bar-track"><div class="bar-tobe" id="bar-ct-tobe" style="width:0%;"></div></div>
+          </div>
+          <div class="comparison-bar-pct" id="pct-ct">—</div>
+        </div>
+
+        <div class="comparison-bar-row">
+          <div class="comparison-bar-label">Manual Steps</div>
+          <div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
+            <div class="bar-track" style="margin-bottom:4px;"><div class="bar-asis" style="width:100%;"></div></div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
+            <div class="bar-track"><div class="bar-tobe" id="bar-hc-tobe" style="width:0%;"></div></div>
+          </div>
+          <div class="comparison-bar-pct" id="pct-hc">—</div>
+        </div>
+
+        <div class="comparison-bar-row">
+          <div class="comparison-bar-label">Waste Level</div>
+          <div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
+            <div class="bar-track" style="margin-bottom:4px;"><div class="bar-asis" style="width:100%;"></div></div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
+            <div class="bar-track"><div class="bar-tobe" id="bar-we-tobe" style="width:0%;"></div></div>
+          </div>
+          <div class="comparison-bar-pct" id="pct-we">—</div>
+        </div>
+
+        <div class="comparison-bar-row">
+          <div class="comparison-bar-label">Automation Coverage</div>
+          <div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">AS-IS</div>
+            <div class="bar-track" style="margin-bottom:4px;"><div class="bar-asis" id="bar-ac-asis" style="width:0%;background:#94a3b8;"></div></div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px;">TO-BE</div>
+            <div class="bar-track"><div class="bar-tobe" id="bar-ac-tobe" style="width:0%;"></div></div>
+          </div>
+          <div class="comparison-bar-pct" id="pct-ac">—</div>
+        </div>
+      </div>
+
+      <!-- Sigma Level -->
+      <div class="sigma-section" style="margin-top:1.25rem;">
+        <div class="sigma-item">
+          <div class="sigma-level asis" id="sigma-asis">—</div>
+          <div class="sigma-label">AS-IS Sigma Level</div>
+        </div>
+        <div class="sigma-arrow">→</div>
+        <div class="sigma-item">
+          <div class="sigma-level tobe" id="sigma-tobe">—</div>
+          <div class="sigma-label">TO-BE Sigma Level</div>
+        </div>
+        <div style="margin-left:2rem;border-left:1px solid var(--border);padding-left:2rem;">
+          <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.25rem;">Sigma improvement</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#10b981;" id="sigma-delta">—</div>
+          <div style="font-size:0.75rem;color:var(--muted);">levels gained</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECTION 3: Waste Analysis ─────────────────────────────── -->
+    <div class="report-section">
+      <div class="report-section-title">03 — Waste Analysis</div>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Activity</th>
+            <th>Classification</th>
+            <th>Waste Type</th>
+            <th>Recommendation</th>
+          </tr>
+        </thead>
+        <tbody id="waste-table-body">
+          <tr><td colspan="4" style="color:var(--muted);">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── SECTION 4: Optimized Process (TO-BE) ──────────────────── -->
+    <div class="report-section">
+      <div class="report-section-title">04 — Optimized Process (TO-BE Activities)</div>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Activity</th>
+            <th>Type</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Automation Tool</th>
+          </tr>
+        </thead>
+        <tbody id="tobe-table-body">
+          <tr><td colspan="6" style="color:var(--muted);">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── SECTION 5: Technology Recommendations ─────────────────── -->
+    <div class="report-section">
+      <div class="report-section-title">05 — Technology Recommendations</div>
+      <div class="tech-grid" id="tech-recs-grid">
+        <div style="color:var(--muted);font-size:0.85rem;">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── SECTION 6: ROI Summary ─────────────────────────────────── -->
+    <div class="report-section">
+      <div class="report-section-title">06 — ROI Summary</div>
+      <div class="roi-grid">
+        <div class="roi-stats-grid">
+          <div class="roi-stat">
+            <div class="roi-stat-label">Annual Hours Saved</div>
+            <div class="roi-stat-value" id="roi-annual-hrs">—</div>
+            <div class="roi-stat-sub" id="roi-annual-usd"></div>
+          </div>
+          <div class="roi-stat">
+            <div class="roi-stat-label">Estimated ROI</div>
+            <div class="roi-stat-value" id="roi-pct" style="color:var(--primary);">—</div>
+            <div class="roi-stat-sub">return on investment</div>
+          </div>
+          <div class="roi-stat">
+            <div class="roi-stat-label">Break-even Point</div>
+            <div class="roi-stat-value" id="roi-payback">—</div>
+            <div class="roi-stat-sub">months to recover cost</div>
+          </div>
+          <div class="roi-stat">
+            <div class="roi-stat-label">3-Year Total Savings</div>
+            <div class="roi-stat-value" id="roi-3yr" style="color:#10b981;">—</div>
+            <div class="roi-stat-sub">projected USD</div>
+          </div>
+        </div>
+        <div>
+          <div class="year-bars-title">3-Year Projected Savings (USD)</div>
+          <div id="year-bars">
+            <div class="year-bar-row">
+              <div class="year-bar-label">Year 1</div>
+              <div class="year-bar-track"><div class="year-bar-fill" id="bar-y1"></div></div>
+              <div class="year-bar-value" id="val-y1">—</div>
+            </div>
+            <div class="year-bar-row">
+              <div class="year-bar-label">Year 2</div>
+              <div class="year-bar-track"><div class="year-bar-fill" id="bar-y2"></div></div>
+              <div class="year-bar-value" id="val-y2">—</div>
+            </div>
+            <div class="year-bar-row">
+              <div class="year-bar-label">Year 3</div>
+              <div class="year-bar-track"><div class="year-bar-fill" id="bar-y3"></div></div>
+              <div class="year-bar-value" id="val-y3">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /metrics-content -->
 </main>
 
 <script type="module">
@@ -224,114 +448,109 @@
 
   window.handleLogout = function() { auth.logout(); };
 
-  async function init() {
-    // Load user info
-    try {
-      const user = await auth.me();
-      if (!user) return;
-      setUser(user);
-      const initials = user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-      document.getElementById('user-avatar').textContent = initials;
-      document.getElementById('user-name').textContent = user.full_name;
-      document.getElementById('user-email').textContent = user.email;
-    } catch (e) { console.error('User load error:', e); }
+  const COST_PER_HOUR_USD = 25;
 
-    const sessionId = localStorage.getItem('active_session');
-    document.getElementById('metrics-loading').style.display = 'none';
-
-    if (!sessionId) {
-      document.getElementById('no-session-state').style.display = 'block';
-      return;
+  const toolRecommendations = {
+    document_processing: {
+      label: 'Document Processing',
+      tools: ['UiPath', 'Automation Anywhere', 'Power Automate'],
+      cost: 'Medium ($500–2,000/mo)',
+      roi_months: 6,
+      keywords: ['document', 'file', 'archivo', 'formulario', 'form', 'pdf', 'report', 'reporte']
+    },
+    data_entry: {
+      label: 'Data Entry & Integration',
+      tools: ['Zapier', 'Make.com', 'n8n'],
+      cost: 'Low ($50–200/mo)',
+      roi_months: 3,
+      keywords: ['entry', 'ingreso', 'registro', 'input', 'data', 'datos', 'capture', 'captura']
+    },
+    approval_workflow: {
+      label: 'Approval Workflow',
+      tools: ['Monday.com', 'Jira', 'ServiceNow'],
+      cost: 'Medium ($300–1,500/mo)',
+      roi_months: 4,
+      keywords: ['approval', 'aprobación', 'aprobacion', 'review', 'revisión', 'revision', 'validate', 'validar', 'authorize', 'autorizar']
+    },
+    invoice_processing: {
+      label: 'Invoice & Finance Processing',
+      tools: ['SAP', 'QuickBooks', 'Sage'],
+      cost: 'High ($1,000–5,000/mo)',
+      roi_months: 8,
+      keywords: ['invoice', 'factura', 'billing', 'pago', 'payment', 'finance', 'finanza', 'accounting', 'contabilidad']
+    },
+    communication: {
+      label: 'Communication & Notifications',
+      tools: ['Slack', 'Microsoft Teams', 'Notion'],
+      cost: 'Low ($100–500/mo)',
+      roi_months: 2,
+      keywords: ['email', 'correo', 'notify', 'notific', 'comunicar', 'comunicación', 'communication', 'message', 'mensaje', 'alert']
+    },
+    crm_integration: {
+      label: 'CRM & Customer Management',
+      tools: ['Salesforce', 'HubSpot', 'Zoho CRM'],
+      cost: 'Medium ($500–3,000/mo)',
+      roi_months: 5,
+      keywords: ['crm', 'customer', 'cliente', 'sales', 'venta', 'contact', 'contacto', 'prospect', 'lead']
     }
+  };
 
-    try {
-      const report = await sessions.report(sessionId);
-      if (!report) return;
-      populateMetrics(report);
-    } catch (e) {
-      document.getElementById('metrics-subtitle').textContent = 'Failed to load: ' + e.message;
+  const toolLinks = {
+    'UiPath': 'https://www.uipath.com',
+    'Automation Anywhere': 'https://www.automationanywhere.com',
+    'Power Automate': 'https://powerautomate.microsoft.com',
+    'Zapier': 'https://zapier.com',
+    'Make.com': 'https://make.com',
+    'n8n': 'https://n8n.io',
+    'Monday.com': 'https://monday.com',
+    'Jira': 'https://www.atlassian.com/software/jira',
+    'ServiceNow': 'https://www.servicenow.com',
+    'SAP': 'https://www.sap.com',
+    'QuickBooks': 'https://quickbooks.intuit.com',
+    'Sage': 'https://www.sage.com',
+    'Slack': 'https://slack.com',
+    'Microsoft Teams': 'https://www.microsoft.com/en-us/microsoft-teams/group-chat-software',
+    'Notion': 'https://www.notion.so',
+    'Salesforce': 'https://www.salesforce.com',
+    'HubSpot': 'https://www.hubspot.com',
+    'Zoho CRM': 'https://www.zoho.com/crm'
+  };
+
+  function matchToolCategory(activityName) {
+    const lower = activityName.toLowerCase();
+    for (const [key, rec] of Object.entries(toolRecommendations)) {
+      if (rec.keywords.some(k => lower.includes(k))) return { key, ...rec };
     }
+    return null;
   }
 
-  function populateMetrics(report) {
-    const kpi = report.kpi_report || {};
-    const ct  = kpi.cycle_time || {};
-    const hc  = kpi.human_count || {};
-    const ac  = kpi.automation_coverage || {};
-    const we  = kpi.waste_elimination || {};
-    const roi = kpi.roi || {};
-    const wa  = report.waste_analysis || {};
+  function formatMinutes(mins) {
+    if (!mins && mins !== 0) return '—';
+    if (mins < 60) return Math.round(mins) + ' min';
+    const hrs = (mins / 60).toFixed(1);
+    if (mins < 1440) return hrs + ' hrs';
+    return (mins / 1440).toFixed(1) + ' days';
+  }
 
-    // Subtitle
-    const name = report.process_name || report.asis_process?.name || 'Process';
-    document.getElementById('metrics-subtitle').textContent = name;
+  function formatUSD(val) {
+    return '$' + Math.round(val).toLocaleString();
+  }
 
-    // ── Top stats ───────────────────────────────────────
-    // Card 1: Time Saved
-    const minsSaved = ct.reduction_absolute || 0;
-    document.getElementById('mc-time-value').textContent = formatMinutes(minsSaved);
-    document.getElementById('mc-time-delta').textContent = ct.reduction_pct != null ? '+' + ct.reduction_pct + '% improvement' : '';
+  function classBadge(cls) {
+    if (!cls) return '';
+    if (cls === 'genera_valor') return `<span class="status-badge class-badge-va">Value-added</span>`;
+    if (cls === 'desperdicio')  return `<span class="status-badge class-badge-waste">Waste</span>`;
+    return `<span class="status-badge class-badge-info">Needs info</span>`;
+  }
 
-    // Card 2: Annual hours saved
-    const annualHrs = roi.estimated_annual_saving_hrs ?? kpi.estimated_annual_saving_hrs ?? null;
-    document.getElementById('mc-hours-value').textContent = annualHrs != null ? annualHrs + ' hrs' : '—';
-    if (annualHrs != null) {
-      const monthly = Math.round(annualHrs / 12);
-      document.getElementById('mc-hours-sub').textContent = '~' + monthly + ' hrs/month saved';
-    }
-
-    // Card 3: Steps eliminated
-    const stepsEliminated = (hc.asis_value != null && hc.tobe_value != null)
-      ? (hc.asis_value - hc.tobe_value) + ' of ' + hc.asis_value
-      : '—';
-    document.getElementById('mc-steps-value').textContent = stepsEliminated;
-    if (hc.reduction_pct != null) {
-      document.getElementById('mc-steps-delta').textContent = '-' + hc.reduction_pct + '% reduction';
-    }
-
-    // ── Comparison bars ─────────────────────────────────
-    // Row 1: Cycle Time
-    if (ct.reduction_pct != null) {
-      const tobeWidth = Math.max(2, (1 - ct.reduction_pct / 100) * 100);
-      animateBar('bar-ct-tobe', tobeWidth);
-      document.getElementById('pct-ct').textContent = '-' + ct.reduction_pct + '%';
-    }
-
-    // Row 2: Manual Steps
-    if (hc.asis_value && hc.tobe_value != null) {
-      const hcPct = Math.round((1 - hc.tobe_value / hc.asis_value) * 100);
-      const tobeWidth = Math.max(2, (1 - hcPct / 100) * 100);
-      animateBar('bar-hc-tobe', tobeWidth);
-      document.getElementById('pct-hc').textContent = '-' + hcPct + '%';
-    }
-
-    // Row 3: Waste Eliminated
-    const wastePct = wa.waste_percentage || we.reduction_pct || null;
-    if (wastePct != null) {
-      const reduction = Math.round(wastePct * 0.8);
-      const tobeWidth = Math.max(2, 100 - reduction);
-      animateBar('bar-we-tobe', tobeWidth);
-      document.getElementById('pct-we').textContent = '-' + reduction + '%';
-    }
-
-    // Row 4: Automation Coverage
-    if (ac.asis_value != null && ac.tobe_value != null) {
-      animateBar('bar-ac-asis', ac.asis_value);
-      animateBar('bar-ac-tobe', ac.tobe_value);
-      document.getElementById('pct-ac').textContent = ac.tobe_value + '% automated';
-    }
-
-    // ── Sigma Level ─────────────────────────────────────
-    const sigmaAsis = kpi.sigma_level_asis ?? null;
-    const sigmaTobe = kpi.sigma_level_tobe ?? null;
-    document.getElementById('sigma-asis').textContent = sigmaAsis != null ? sigmaAsis.toFixed(1) + 'σ' : '—';
-    document.getElementById('sigma-tobe').textContent = sigmaTobe != null ? sigmaTobe.toFixed(1) + 'σ' : '—';
-    if (sigmaAsis != null && sigmaTobe != null) {
-      const delta = (sigmaTobe - sigmaAsis).toFixed(1);
-      document.getElementById('sigma-delta').textContent = '+' + delta;
-    }
-
-    document.getElementById('metrics-content').style.display = 'block';
+  function statusBadge(status) {
+    const s = (status || '').toLowerCase();
+    const labels = {
+      automatizada: 'Automated', eliminada: 'Eliminated',
+      optimizada: 'Optimized', conservada: 'Kept',
+      combinada: 'Combined', nueva: 'New'
+    };
+    return `<span class="status-badge badge-${s}">${labels[s] || s}</span>`;
   }
 
   function animateBar(id, widthPct) {
@@ -345,13 +564,217 @@
     });
   }
 
-  function formatMinutes(mins) {
-    if (!mins) return '0 min';
-    if (mins < 60) return mins + ' min';
-    const hours = (mins / 60).toFixed(1);
-    if (mins < 1440) return hours + ' hrs';
-    const days = (mins / 1440).toFixed(1);
-    return days + ' days';
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function init() {
+    try {
+      const user = await auth.me();
+      if (!user) return;
+      setUser(user);
+      const initials = user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+      document.getElementById('user-avatar').textContent = initials;
+      document.getElementById('user-name').textContent = user.full_name;
+      document.getElementById('user-email').textContent = user.email;
+
+      const sessionId = localStorage.getItem('active_session');
+      document.getElementById('metrics-loading').style.display = 'none';
+
+      if (!sessionId) {
+        document.getElementById('no-session-state').style.display = 'block';
+        return;
+      }
+
+      const report = await sessions.report(sessionId);
+      if (!report) return;
+      populateMetrics(report, user);
+    } catch (e) {
+      document.getElementById('metrics-loading').style.display = 'none';
+      console.error('Metrics load error:', e);
+    }
+  }
+
+  function populateMetrics(report, user) {
+    const asis   = report.asis_process   || {};
+    const tobe   = report.tobe_process   || {};
+    const wa     = report.waste_analysis || {};
+    const kpi    = report.kpi_report     || {};
+    const ct     = kpi.cycle_time        || {};
+    const hc     = kpi.headcount         || {};
+    const wr     = kpi.waste_reduction   || {};
+    const ac     = kpi.automation_coverage || {};
+
+    // Page header
+    const processName = asis.name || report.process_name || localStorage.getItem('active_process_name') || 'Process';
+    document.getElementById('met-process-name').textContent = processName;
+    document.title = processName + ' — Metrics | ProcessOptix AI';
+    const orgName = user?.tenant_name || '';
+    const dateStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    document.getElementById('met-meta').textContent = [orgName, dateStr].filter(Boolean).join(' · ');
+
+    // ── Section 1: Executive Summary ─────────────────────────────
+    document.getElementById('exec-summary-text').textContent = kpi.executive_summary || '—';
+    document.getElementById('exec-process').textContent    = asis.name || '—';
+    document.getElementById('exec-dept').textContent       = asis.owner || '—';
+    document.getElementById('exec-objective').textContent  = asis.description
+      ? asis.description.slice(0, 120) + (asis.description.length > 120 ? '…' : '') : '—';
+    document.getElementById('exec-asis-dur').textContent   = formatMinutes(asis.total_duration_min);
+    document.getElementById('exec-tobe-dur').textContent   = formatMinutes(tobe.total_duration_min);
+    document.getElementById('exec-improvement').textContent = ct.reduction_pct != null ? '-' + ct.reduction_pct + '% cycle time' : '—';
+    const sigmaAsis = kpi.sigma_level_asis;
+    const sigmaTobe = kpi.sigma_level_tobe;
+    document.getElementById('exec-sigma').textContent = (sigmaAsis != null && sigmaTobe != null)
+      ? sigmaAsis.toFixed(1) + 'σ → ' + sigmaTobe.toFixed(1) + 'σ' : '—';
+    document.getElementById('exec-date').textContent = dateStr;
+
+    // ── Section 2: KPI Dashboard ─────────────────────────────────
+    document.getElementById('kpi-ct-pct').textContent = ct.reduction_pct != null ? '-' + ct.reduction_pct + '%' : '—';
+    document.getElementById('kpi-ct-sub').textContent = ct.asis_value != null
+      ? ct.asis_value + ' min → ' + ct.tobe_value + ' min' : '';
+
+    document.getElementById('kpi-hc-pct').textContent = hc.reduction_pct != null ? '-' + hc.reduction_pct + '%' : '—';
+    document.getElementById('kpi-hc-sub').textContent = hc.asis_value != null
+      ? hc.asis_value + ' → ' + hc.tobe_value + ' manual steps' : '';
+
+    document.getElementById('kpi-wr-pct').textContent = wr.reduction_pct != null ? '-' + wr.reduction_pct + '%' : '—';
+    document.getElementById('kpi-wr-sub').textContent = wr.asis_value != null
+      ? wr.asis_value + ' → ' + wr.tobe_value + ' min waste' : '';
+
+    document.getElementById('kpi-ac-val').textContent = ac.tobe_value != null ? ac.tobe_value + '%' : '—';
+    document.getElementById('kpi-ac-sub').textContent = ac.asis_value != null
+      ? '↑ from ' + ac.asis_value + '% automated' : '';
+
+    // Comparison bars
+    if (ct.reduction_pct != null) {
+      animateBar('bar-ct-tobe', Math.max(2, 100 - ct.reduction_pct));
+      document.getElementById('pct-ct').textContent = '-' + ct.reduction_pct + '%';
+    }
+    if (hc.asis_value && hc.tobe_value != null) {
+      const hcPct = Math.round((1 - hc.tobe_value / hc.asis_value) * 100);
+      animateBar('bar-hc-tobe', Math.max(2, 100 - hcPct));
+      document.getElementById('pct-hc').textContent = '-' + hcPct + '%';
+    }
+    if (wr.reduction_pct != null) {
+      animateBar('bar-we-tobe', Math.max(2, 100 - wr.reduction_pct));
+      document.getElementById('pct-we').textContent = '-' + wr.reduction_pct + '%';
+    }
+    if (ac.asis_value != null && ac.tobe_value != null) {
+      animateBar('bar-ac-asis', ac.asis_value);
+      animateBar('bar-ac-tobe', ac.tobe_value);
+      document.getElementById('pct-ac').textContent = ac.tobe_value + '% automated';
+    }
+
+    // Sigma
+    document.getElementById('sigma-asis').textContent = sigmaAsis != null ? sigmaAsis.toFixed(1) + 'σ' : '—';
+    document.getElementById('sigma-tobe').textContent = sigmaTobe != null ? sigmaTobe.toFixed(1) + 'σ' : '—';
+    if (sigmaAsis != null && sigmaTobe != null) {
+      document.getElementById('sigma-delta').textContent = '+' + (sigmaTobe - sigmaAsis).toFixed(1);
+    }
+
+    // ── Section 3: Waste Analysis ─────────────────────────────────
+    const actDetails = wa.activity_details || [];
+    const wasteTbody = document.getElementById('waste-table-body');
+    if (actDetails.length === 0) {
+      wasteTbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);">No waste analysis data available.</td></tr>';
+    } else {
+      wasteTbody.innerHTML = actDetails.map(d => `
+        <tr>
+          <td>${escHtml(d.activity_name)}</td>
+          <td>${classBadge(d.waste_classification)}</td>
+          <td>${d.waste_type ? `<span style="font-size:0.78rem;color:var(--muted);">${escHtml(d.waste_type)}</span>` : '—'}</td>
+          <td style="font-size:0.79rem;color:var(--muted);">${escHtml(d.waste_justification || '—')}</td>
+        </tr>`).join('');
+    }
+
+    // ── Section 4: TO-BE Activities ──────────────────────────────
+    const tobeActivities = tobe.activities || [];
+    const tobeTbody = document.getElementById('tobe-table-body');
+    if (tobeActivities.length === 0) {
+      tobeTbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);">No TO-BE activities available.</td></tr>';
+    } else {
+      tobeTbody.innerHTML = tobeActivities.map((a, i) => `
+        <tr>
+          <td style="color:var(--muted);font-size:0.75rem;">${i + 1}</td>
+          <td style="font-weight:500;">${escHtml(a.name)}</td>
+          <td style="font-size:0.78rem;color:var(--muted);">${escHtml(a.type || '—')}</td>
+          <td style="font-size:0.78rem;">${a.estimated_duration_min != null ? Math.round(a.estimated_duration_min) + ' min' : '—'}</td>
+          <td>${statusBadge(a.status)}</td>
+          <td style="font-size:0.78rem;color:var(--muted);">${a.automation_tool ? escHtml(a.automation_tool) : '—'}</td>
+        </tr>`).join('');
+    }
+
+    // ── Section 5: Technology Recommendations ────────────────────
+    const automatedActivities = tobeActivities.filter(a => a.status === 'automatizada');
+    const seen = new Set();
+    const techRecs = [];
+
+    for (const act of automatedActivities) {
+      const match = matchToolCategory(act.name);
+      if (match && !seen.has(match.key)) {
+        seen.add(match.key);
+        techRecs.push({ activity: act.name, ...match });
+      }
+    }
+
+    // If no automated activities matched, show generic recommendations
+    if (techRecs.length === 0) {
+      const defaults = ['data_entry', 'approval_workflow', 'communication'];
+      for (const k of defaults) {
+        techRecs.push({ activity: null, key: k, ...toolRecommendations[k] });
+      }
+    }
+
+    const techGrid = document.getElementById('tech-recs-grid');
+    techGrid.innerHTML = techRecs.map(r => `
+      <div class="tech-card">
+        ${r.activity ? `<div class="tech-card-activity">For: ${escHtml(r.activity)}</div>` : ''}
+        <div class="tech-card-title">${escHtml(r.label)}</div>
+        <div class="tech-tools">
+          ${r.tools.map(t => `<span class="tech-tool-badge">${escHtml(t)}</span>`).join('')}
+        </div>
+        <div class="tech-meta">
+          <div>💰 ${escHtml(r.cost)}</div>
+          <div>📈 ~${r.roi_months} months to ROI</div>
+          <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+            ${r.tools.map(t => toolLinks[t]
+              ? `<a href="${toolLinks[t]}" target="_blank" rel="noopener noreferrer" style="font-size:0.7rem;color:var(--primary);text-decoration:none;">${escHtml(t)} ↗</a>`
+              : '').filter(Boolean).join('')}
+          </div>
+        </div>
+      </div>`).join('');
+
+    // ── Section 6: ROI Summary ────────────────────────────────────
+    const annualHrs  = kpi.estimated_annual_saving_hrs || 0;
+    const annualUSD  = annualHrs * COST_PER_HOUR_USD;
+    const roiPct     = kpi.estimated_roi_pct;
+    const payback    = kpi.estimated_payback_months;
+
+    // 3-year projection (Year 2 +10%, Year 3 +20%)
+    const y1 = annualUSD;
+    const y2 = annualUSD * 1.10;
+    const y3 = annualUSD * 1.20;
+    const total3yr = y1 + y2 + y3;
+
+    document.getElementById('roi-annual-hrs').textContent = annualHrs ? Math.round(annualHrs) + ' hrs/year' : '—';
+    document.getElementById('roi-annual-usd').textContent = annualUSD ? 'at $25/hr = ' + formatUSD(annualUSD) + '/yr' : '';
+    document.getElementById('roi-pct').textContent = roiPct != null ? roiPct + '%' : '—';
+    document.getElementById('roi-payback').textContent = payback != null ? payback.toFixed(1) + ' months' : '—';
+    document.getElementById('roi-3yr').textContent = total3yr ? formatUSD(total3yr) : '—';
+
+    if (y3 > 0) {
+      const maxBar = y3;
+      setTimeout(() => {
+        document.getElementById('bar-y1').style.width = Math.round(y1 / maxBar * 100) + '%';
+        document.getElementById('bar-y2').style.width = Math.round(y2 / maxBar * 100) + '%';
+        document.getElementById('bar-y3').style.width = '100%';
+      }, 150);
+      document.getElementById('val-y1').textContent = formatUSD(y1);
+      document.getElementById('val-y2').textContent = formatUSD(y2);
+      document.getElementById('val-y3').textContent = formatUSD(y3);
+    }
+
+    document.getElementById('metrics-content').style.display = 'block';
   }
 
   init();

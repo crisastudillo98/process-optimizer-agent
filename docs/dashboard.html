@@ -255,6 +255,8 @@
 
   window.openWorkspace = function(id) {
     localStorage.setItem('active_session', id);
+    const proc = allProcesses.find(p => p.id === id);
+    if (proc) localStorage.setItem('active_process_name', proc.process_name || proc.id.slice(0, 8));
     window.location.href = 'workspace.html';
   };
 
@@ -317,6 +319,7 @@
         const result = await sessions.analyzeText(text, name || 'Untitled Process');
         if (!result) return;
         localStorage.setItem('active_session', result.session_id);
+        localStorage.setItem('active_process_name', name || 'Untitled Process');
         window.location.href = 'workspace.html';
       } catch (e) {
         errEl.textContent = e.message || 'Analysis failed. Please try again.';
@@ -334,6 +337,7 @@
         const result = await sessions.analyzeFile(selectedFile);
         if (!result) return;
         localStorage.setItem('active_session', result.session_id);
+        localStorage.setItem('active_process_name', name || 'Untitled Process');
         window.location.href = 'workspace.html';
       } catch (e) {
         errEl.textContent = e.message || 'Upload failed. Please try again.';

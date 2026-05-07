@@ -3,7 +3,7 @@ import json
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 #from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import StrOutputParser
 
 from config.settings import settings
 from models.schemas import (
@@ -58,7 +58,7 @@ def _build_tobe_process(data: dict, original_process_id: str) -> TOBEProcess:
 
     # Duración total = suma de no-eliminadas
     total_duration = sum(
-        a.estimated_duration_min for a in activities
+        (a.estimated_duration_min or 0.0) for a in activities
         if a.status != ActivityStatus.ELIMINATED
     )
 
@@ -95,34 +95,38 @@ def _build_tobe_process(data: dict, original_process_id: str) -> TOBEProcess:
 # LLAMADA LLM CON REINTENTOS
 # ─────────────────────────────────────────────
 
+def _strip_markdown_json(text: str) -> str:
+    """Remove ```json ... ``` or ``` ... ``` fences LLMs sometimes add."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]
+        if text.endswith("```"):
+            text = text.rsplit("```", 1)[0]
+    return text.strip()
+
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
     reraise=True,
 )
 def _call_llm_with_retry(
-    #llm: ChatOpenAI,
     llm,
     asis_json: str,
     waste_json: str,
     rag_context: str,
     hitl_feedback: str,
 ) -> dict:
-    json_schema = json.dumps(
-        TOBEProcess.model_json_schema(),
-        ensure_ascii=False,
-        indent=2,
-    )
+    chain = generate_tobe_prompt | llm | StrOutputParser()
 
-    chain = generate_tobe_prompt | llm | JsonOutputParser()
-
-    result: dict = chain.invoke({
-        "asis_process_json":  asis_json,
+    raw: str = chain.invoke({
+        "asis_process_json":   asis_json,
         "waste_analysis_json": waste_json,
-        "rag_context":        rag_context,
-        "hitl_feedback":      hitl_feedback,
-        "json_schema":        json_schema,
+        "rag_context":         rag_context,
+        "hitl_feedback":       hitl_feedback,
     })
+
+    result: dict = json.loads(_strip_markdown_json(raw))
 
     if "activities" not in result or len(result["activities"]) == 0:
         raise ValueError(
@@ -201,6 +205,7 @@ def node_optimize_tobe(state: AgentState) -> dict:
     asis_json  = json.dumps(process.model_dump(mode="json"),   ensure_ascii=False, indent=2)
     waste_json = json.dumps(analysis.model_dump(mode="json"),  ensure_ascii=False, indent=2)
     rag_context = "\n\n".join(state.rag_context) if state.rag_context else "Sin contexto RAG."
+    rag_context = rag_context[:500]
     hitl_feedback = state.hitl_feedback or "Sin feedback del revisor."
 
     llm = _build_llm()

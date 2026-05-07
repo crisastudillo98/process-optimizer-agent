@@ -3,7 +3,7 @@ import json
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 #from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import StrOutputParser
 
 from config.settings import settings
 from models.schemas import AgentState, Process, Activity, SubActivity
@@ -28,6 +28,18 @@ def _build_llm():
     return get_llm(temperature=settings.openai_temperature)
 
 
+def _strip_markdown_json(text: str) -> str:
+    """Remove ```json ... ``` or ``` ... ``` fences that LLMs often wrap responses in."""
+    text = text.strip()
+    if text.startswith("```"):
+        # Drop the opening fence line (e.g. ```json)
+        text = text.split("\n", 1)[-1]
+        # Drop the closing fence
+        if text.endswith("```"):
+            text = text.rsplit("```", 1)[0]
+    return text.strip()
+
+
 # ─────────────────────────────────────────────
 # VALIDACIÓN Y CONSTRUCCIÓN DEL PROCESO
 # ─────────────────────────────────────────────
@@ -39,14 +51,20 @@ def _build_process_from_dict(data: dict, raw_input: str) -> Process:
     """
     activities: list[Activity] = []
 
-    for act_data in data.get("activities", []):
+    for i, act_data in enumerate(data.get("activities", [])):
+        # Normalize common LLM field-name variations
+        act_data.setdefault("id", f"ACT-{i+1:03d}")
+        act_data.setdefault("type", act_data.pop("activity_type", "operativa"))
+        if "depends_on" not in act_data and "dependencies" in act_data:
+            act_data["depends_on"] = act_data.pop("dependencies")
+
         subactivities = [
             SubActivity(**sa) for sa in act_data.pop("subactivities", [])
         ]
         activity = Activity(**act_data, subactivities=subactivities)
         activities.append(activity)
 
-    total_duration = sum(a.estimated_duration_min for a in activities)
+    total_duration = sum(a.estimated_duration_min or 0.0 for a in activities)
 
     process = Process(
         id=data.get("id", "PROC-001"),
@@ -57,7 +75,7 @@ def _build_process_from_dict(data: dict, raw_input: str) -> Process:
         participants=data.get("participants", []),
         systems=data.get("systems", []),
         activities=activities,
-        total_duration_min=data.get("total_duration_min", total_duration),
+        total_duration_min=total_duration,
         raw_input=raw_input,
     )
 
@@ -78,22 +96,16 @@ def _build_process_from_dict(data: dict, raw_input: str) -> Process:
     wait=wait_exponential(multiplier=1, min=2, max=10),
     reraise=True,
 )
-#def _call_llm_with_retry(llm: ChatOpenAI, raw_input: str) -> dict:
 def _call_llm_with_retry(llm, raw_input: str) -> dict:
     """
     Llama al LLM con reintentos exponenciales.
     Parsea la respuesta JSON y valida estructura mínima.
     """
-    json_schema = json.dumps(
-        Process.model_json_schema(), ensure_ascii=False, indent=2
-    )
+    chain = extract_asis_prompt | llm | StrOutputParser()
 
-    chain = extract_asis_prompt | llm | JsonOutputParser()
-
-    result: dict = chain.invoke({
-        "raw_input":   raw_input,
-        "json_schema": json_schema,
-    })
+    raw: str = chain.invoke({"raw_input": raw_input})
+    cleaned = _strip_markdown_json(raw)
+    result: dict = json.loads(cleaned)
 
     # Validación mínima — debe tener al menos nombre y actividades
     if "name" not in result or "activities" not in result:

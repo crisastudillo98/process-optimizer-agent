@@ -68,7 +68,7 @@ class Activity(BaseModel):
     description: str         = Field(..., description="Descripción detallada")
     responsible: str         = Field(..., description="Rol o actor responsable")
     type: ActivityType       = Field(..., description="Clasificación funcional")
-    estimated_duration_min: float  = Field(..., description="Duración estimada en minutos")
+    estimated_duration_min: Optional[float] = Field(None, description="Duración estimada en minutos")
     depends_on: list[str]    = Field(default_factory=list, description="IDs de actividades previas")
     systems_used: list[str]  = Field(default_factory=list, description="Sistemas o herramientas involucradas")
     subactivities: list[SubActivity] = Field(default_factory=list)
@@ -125,8 +125,8 @@ class OptimizedActivity(BaseModel):
     responsible: str
     type: ActivityType
     status: ActivityStatus       = Field(..., description="Qué se hace con esta actividad")
-    estimated_duration_min: float
-    duration_reduction_pct: float = Field(default=0.0, description="% de reducción vs AS-IS")
+    estimated_duration_min: Optional[float] = None
+    duration_reduction_pct: Optional[float] = Field(default=0.0, description="% de reducción vs AS-IS")
     is_automatable: bool          = Field(default=False)
     automation_tool: Optional[str] = None
     improvement_justification: str = Field(..., description="Por qué se aplica este cambio")
@@ -141,7 +141,7 @@ class TOBEProcess(BaseModel):
     description: str
     owner: str
     activities: list[OptimizedActivity] = Field(default_factory=list)
-    total_duration_min: float
+    total_duration_min: Optional[float] = None
     generated_at: datetime              = Field(default_factory=datetime.utcnow)
     applied_methodologies: list[str]    = Field(
         default=["Lean", "Six Sigma", "Kaizen"],

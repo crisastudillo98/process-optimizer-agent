@@ -105,6 +105,8 @@ export const sessions = {
   },
   status: (id) =>
     apiRequest('GET', `/sessions/${id}/status`),
+  process: (id) =>
+    apiRequest('GET', `/sessions/${id}/process`),
   report: (id) =>
     apiRequest('GET', `/sessions/${id}/report`),
   kpis: (id) =>

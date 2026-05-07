@@ -4,7 +4,7 @@ from typing import Literal
 
 class Settings(BaseSettings):
     # LLM Provider
-    llm_provider: Literal["openai", "groq", "perplexity"] = Field(default="groq", env="LLM_PROVIDER")  
+    llm_provider: Literal["openai", "groq", "perplexity", "gemini", "ollama"] = Field(default="groq", env="LLM_PROVIDER")
     
     # OpenAI opcional
     #openai_api_key: str = Field(..., env="OPENAI_API_KEY")
@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     # Groq
     groq_api_key: str = Field(default="", env="GROQ_API_KEY")
     groq_model: str = Field(default="llama-3.3-70b-versatile", env="GROQ_MODEL")
+
+    # Gemini
+    gemini_api_key: str = Field(default="", env="GEMINI_API_KEY")
+    gemini_model: str = Field(default="gemini-2.0-flash", env="GEMINI_MODEL")
+
+    # Ollama
+    ollama_base_url: str = Field(default="http://localhost:11434", env="OLLAMA_BASE_URL")
+    ollama_model: str = Field(default="llama3.1", env="OLLAMA_MODEL")
 
     # RAG / Embeddings
     #embedding_model: str = Field(default="text-embedding-3-small", env="EMBEDDING_MODEL")

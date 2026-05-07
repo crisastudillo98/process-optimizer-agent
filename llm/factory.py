@@ -32,6 +32,33 @@ def get_llm(temperature: float | None = None):
         logger.info(f"LLM inicializado: Groq / {settings.groq_model}")
         return llm
 
+    # ── Gemini ────────────────────────────────────────────────────────────
+    if provider == "gemini":
+        if not settings.gemini_api_key:
+            raise ValueError(
+                "GEMINI_API_KEY no está configurada en el .env. "
+                "Obtén tu key en https://aistudio.google.com/app/apikey"
+            )
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        llm = ChatGoogleGenerativeAI(
+            model=settings.gemini_model,
+            temperature=temp,
+            google_api_key=settings.gemini_api_key,
+        )
+        logger.info(f"LLM inicializado: Gemini / {settings.gemini_model}")
+        return llm
+
+    # ── Ollama ────────────────────────────────────────────────────────────
+    if provider == "ollama":
+        from langchain_ollama import ChatOllama
+        llm = ChatOllama(
+            model=settings.ollama_model,
+            base_url=settings.ollama_base_url,
+            temperature=temp,
+        )
+        logger.info(f"LLM inicializado: Ollama / {settings.ollama_model} @ {settings.ollama_base_url}")
+        return llm
+
     # ── OpenAI (default) ──────────────────────────────────────────────────
     if not settings.openai_api_key:
         raise ValueError(

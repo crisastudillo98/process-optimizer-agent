@@ -45,9 +45,12 @@
 
   <!-- HITL banner (hidden by default) -->
   <div class="hitl-banner" id="hitl-banner" style="display:none;">
-    <div>
-      <span class="hitl-label">⏸ Review Required — </span>
-      <span id="hitl-banner-text">Optimization proposal needs your approval</span>
+    <div style="flex:1;min-width:0;">
+      <div>
+        <span class="hitl-label">⏸ Review Required — </span>
+        <span id="hitl-banner-text">Optimization proposal needs your approval</span>
+      </div>
+      <div id="hitl-process-info" style="margin-top:0.35rem;font-size:0.78rem;opacity:0.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
     </div>
     <div class="hitl-actions">
       <button class="btn-approve" id="hitl-approve-btn" onclick="approveHITL()">✓ Approve</button>
@@ -234,7 +237,7 @@
 
       // Check HITL flags
       if (status.hitl_required) {
-        showHitlBanner('Review the proposed TO-BE optimization before continuing');
+        await showHitlBanner('Review the proposed TO-BE optimization before continuing');
       }
 
       if (status.kpi_ok) {
@@ -365,9 +368,18 @@
   }
 
   // ── HITL ─────────────────────────────────────────────
-  function showHitlBanner(msg) {
+  async function showHitlBanner(msg) {
     document.getElementById('hitl-banner-text').textContent = msg;
     document.getElementById('hitl-banner').style.display = 'flex';
+    try {
+      const proc = await sessions.process(sessionId);
+      if (proc) {
+        const actCount = (proc.activities || []).length;
+        const actNames = (proc.activities || []).map(a => a.name).join(' · ');
+        document.getElementById('hitl-process-info').textContent =
+          `${proc.name} — ${actCount} activities: ${actNames}`;
+      }
+    } catch(_) { /* process not yet available — banner still shows */ }
   }
 
   window.approveHITL = async function() {

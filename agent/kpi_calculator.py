@@ -197,7 +197,7 @@ def _calc_process_efficiency(
     """
     # AS-IS: solo actividades que generan valor / total
     asis_value_time = sum(
-        a.estimated_duration_min
+        (a.estimated_duration_min or 0.0)
         for a in asis.activities
         if a.waste_classification is None
         or a.waste_classification.value == "genera_valor"
@@ -209,7 +209,7 @@ def _calc_process_efficiency(
     # TO-BE: excluimos eliminadas del lead time
     tobe_total = tobe.total_duration_min or 1.0
     tobe_value_time = sum(
-        a.estimated_duration_min
+        (a.estimated_duration_min or 0.0)
         for a in tobe.activities
         if a.status not in (ActivityStatus.ELIMINATED,)
     )
@@ -338,7 +338,11 @@ def _enrich_kpis_with_llm(
         "tobe_duration_min":   tobe.total_duration_min,
         "tobe_activity_count": len(tobe.activities),
         "automated_count":     automated_count,
-        "time_reduction_pct":  kpis["cycle_time"].reduction_pct,
+        "time_reduction_pct":  (
+            kpis["cycle_time"].get("reduction_pct")
+            if isinstance(kpis["cycle_time"], dict)
+            else kpis["cycle_time"].reduction_pct
+        ),
         "kpis_json":           json.dumps(kpis, default=str, ensure_ascii=False, indent=2),
         "json_schema":         json_schema,
     })

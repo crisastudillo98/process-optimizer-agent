@@ -287,3 +287,38 @@ def node_hitl_review(state: AgentState) -> dict:
         "hitl_retries":  state.hitl_retries + 1,
         "current_node":  "hitl_review",
     }
+
+
+# ─────────────────────────────────────────────
+# NODO LANGGRAPH — AS-IS HITL REVIEW
+# ─────────────────────────────────────────────
+
+def node_hitl_review_asis(state: AgentState) -> dict:
+    """
+    LangGraph node: pauses pipeline so analyst can review the AS-IS process
+    before TO-BE generation begins.
+
+    In API mode: returns hitl_asis_required=True; pipeline resumes when
+    POST /sessions/{id}/asis-review injects hitl_asis_approved=True.
+    """
+    from datetime import datetime, timezone
+    logger.info("── Nodo: hitl_review_asis ──")
+
+    if not settings.hitl_enabled:
+        logger.info("HITL desactivado — AS-IS aprobado automáticamente")
+        return {
+            "hitl_asis_required": False,
+            "hitl_asis_approved": True,
+            "current_node": "hitl_review_asis",
+        }
+
+    logger.info(
+        "AS-IS HITL activo — pipeline suspendido esperando revisión del analista. "
+        f"Proceso: '{state.asis_process.name if state.asis_process else 'N/A'}'"
+    )
+    return {
+        "hitl_asis_required":    True,
+        "hitl_asis_approved":    False,
+        "hitl_asis_started_at":  datetime.now(timezone.utc),
+        "current_node":          "hitl_review_asis",
+    }

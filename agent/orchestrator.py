@@ -6,9 +6,11 @@ from agent.document_loader import node_load_document   # ✅ implementado
 from agent.process_extractor import node_extract_asis  # ✅ implementado
 from agent.analyzer import node_analyze_waste   # ✅ implementado
 from rag.retriever  import node_retrieve_rag    # ✅ implementado
-from agent.optimizer import node_optimize_tobe  # ✅ implementado
-from agent.optimizer import node_hitl_review    # ✅ implementado
-from agent.bpmn_generator import node_generate_bpmn  # ✅ implementado
+from agent.optimizer import node_optimize_tobe       # ✅ implementado
+from agent.optimizer import node_hitl_review         # ✅ implementado
+from agent.optimizer import node_hitl_review_asis    # ✅ implementado
+from agent.bpmn_generator import node_generate_bpmn      # ✅ implementado
+from agent.bpmn_generator import node_generate_asis_bpmn # ✅ implementado
 from agent.kpi_calculator import node_calculate_kpis   # ✅ implementado
 
 
@@ -60,13 +62,23 @@ from agent.kpi_calculator import node_calculate_kpis   # ✅ implementado
 def route_after_extraction(state: AgentState) -> str:
     if not state.extraction_ok:
         return "end"          # Extracción fallida → terminar con error
-    return "analyze_waste"
+    return "generate_asis_bpmn"
 
 
 def route_after_optimization(state: AgentState) -> str:
     if settings.hitl_enabled:
         return "hitl_review"  # HITL activo → pausa para aprobación
     return "generate_bpmn"    # HITL desactivado → continuar directo
+
+
+def route_after_asis_hitl(state: AgentState) -> str:
+    if state.hitl_asis_approved:
+        return "retrieve_rag"
+    # If rejected with feedback, re-extract AS-IS with correction hint
+    if state.hitl_asis_feedback:
+        return "extract_asis"
+    # No feedback provided — approve anyway to avoid infinite loop
+    return "retrieve_rag"
 
 
 def route_after_hitl(state: AgentState) -> str:
@@ -84,27 +96,38 @@ def build_graph() -> StateGraph:
     graph = StateGraph(AgentState)
 
     # Registro de nodos
-    graph.add_node("load_document",  node_load_document)
-    graph.add_node("extract_asis",   node_extract_asis)
-    graph.add_node("analyze_waste",  node_analyze_waste)
-    graph.add_node("retrieve_rag",   node_retrieve_rag)
-    graph.add_node("optimize_tobe",  node_optimize_tobe)
-    graph.add_node("hitl_review",    node_hitl_review)
-    graph.add_node("generate_bpmn",  node_generate_bpmn)
-    graph.add_node("calculate_kpis", node_calculate_kpis)
+    graph.add_node("load_document",       node_load_document)
+    graph.add_node("extract_asis",        node_extract_asis)
+    graph.add_node("generate_asis_bpmn",  node_generate_asis_bpmn)
+    graph.add_node("analyze_waste",       node_analyze_waste)
+    graph.add_node("hitl_review_asis",    node_hitl_review_asis)
+    graph.add_node("retrieve_rag",        node_retrieve_rag)
+    graph.add_node("optimize_tobe",       node_optimize_tobe)
+    graph.add_node("hitl_review",         node_hitl_review)
+    graph.add_node("generate_bpmn",       node_generate_bpmn)
+    graph.add_node("calculate_kpis",      node_calculate_kpis)
 
     # Flujo principal
     graph.set_entry_point("load_document")
     graph.add_edge("load_document", "extract_asis")
 
-    # Routing condicional post-extracción
+    # Routing condicional post-extracción → AS-IS BPMN or end
     graph.add_conditional_edges(
         "extract_asis",
         route_after_extraction,
-        {"analyze_waste": "analyze_waste", "end": END}
+        {"generate_asis_bpmn": "generate_asis_bpmn", "end": END}
     )
 
-    graph.add_edge("analyze_waste", "retrieve_rag")
+    graph.add_edge("generate_asis_bpmn", "analyze_waste")
+
+    # AS-IS HITL checkpoint between analyze_waste and retrieve_rag
+    graph.add_edge("analyze_waste", "hitl_review_asis")
+    graph.add_conditional_edges(
+        "hitl_review_asis",
+        route_after_asis_hitl,
+        {"retrieve_rag": "retrieve_rag", "extract_asis": "extract_asis"}
+    )
+
     graph.add_edge("retrieve_rag",  "optimize_tobe")
 
     # Routing condicional post-optimización (HITL)

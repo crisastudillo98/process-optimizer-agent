@@ -81,6 +81,31 @@ def get_analysis(
     return record
 
 
+def reconstruct_state_from_db(record) -> dict:
+    """Build a minimal AgentState dict from a completed SQLite analysis record."""
+    if not record or not record.result_json:
+        return {}
+    result = json.loads(record.result_json)
+    return {
+        "raw_input": record.raw_input or "",
+        "current_node": "calculate_kpis",
+        "extraction_ok": True,
+        "analysis_ok": True,
+        "optimization_ok": True,
+        "bpmn_ok": True,
+        "kpi_ok": True,
+        "hitl_approved": True,
+        "hitl_asis_approved": True,
+        "asis_process": result.get("asis_process"),
+        "waste_analysis": result.get("waste_analysis"),
+        "tobe_process": result.get("tobe_process"),
+        "kpi_report": result.get("kpi_report"),
+        "user_id": record.user_id,
+        "tenant_id": record.tenant_id,
+        "errors": [],
+    }
+
+
 def list_analyses(
     db: Session,
     limit: int = 50,

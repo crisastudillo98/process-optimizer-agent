@@ -405,7 +405,13 @@ class AgentState(BaseModel):
     tobe_process: Optional[TOBEProcess]   = None
     optimization_ok: bool                 = False
 
-    # Nodo 5: HITL
+    # Nodo 5: HITL AS-IS (checkpoint before TO-BE generation)
+    hitl_asis_required: bool              = False
+    hitl_asis_approved: bool              = False
+    hitl_asis_feedback: str               = ""
+    hitl_asis_started_at: Optional[datetime] = None
+
+    # Nodo 5b: HITL TO-BE
     hitl_required: bool                   = False
     hitl_approved: bool                   = False
     hitl_feedback: Optional[str]          = None
@@ -416,6 +422,7 @@ class AgentState(BaseModel):
     #bpmn_file_path: Optional[str]         = None
     #bpmn_ok: bool                         = False
     bpmn_output: Optional[BPMNOutput] = None
+    bpmn_asis_output: Optional[str]   = None   # file path to AS-IS BPMN
     bpmn_ok: bool                     = False
 
     # Nodo 7: KPI Calculator

@@ -12,6 +12,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from config.settings import settings
 from models.schemas import (
     AgentState,
+    Process,
     TOBEProcess,
     ActivityStatus,
     ActivityType,
@@ -617,3 +618,144 @@ def node_generate_bpmn(state: AgentState) -> dict:
             "errors":  state.errors + [f"generate_bpmn: {str(e)}"],
             "current_node": "generate_bpmn",
         }
+
+
+# ─────────────────────────────────────────────
+# AS-IS BPMN GENERATION
+# ─────────────────────────────────────────────
+
+def build_bpmn_structure_from_asis(asis: Process) -> BPMNStructure:
+    """
+    Builds BPMN structure deterministically from AS-IS Process activities.
+    All activities are included (no eliminated filter — AS-IS is the raw state).
+    """
+    elements: list[BPMNElement] = []
+    flows: list[BPMNSequenceFlow] = []
+    lanes_map: dict[str, BPMNLane] = {}
+    flow_counter = 1
+    gateway_counter = 1
+
+    start_id = "asis_start_1"
+    elements.append(BPMNElement(
+        id=start_id,
+        type=BPMNElementType.START_EVENT,
+        name="Inicio",
+        documentation="Inicio del proceso AS-IS",
+    ))
+    previous_id = start_id
+
+    for idx, activity in enumerate(asis.activities, start=1):
+        task_id = f"asis_task_{idx}"
+
+        # Map type to BPMN element type
+        if activity.type == ActivityType.COGNITIVE:
+            bpmn_type = BPMNElementType.USER_TASK
+        else:
+            bpmn_type = BPMNElementType.TASK
+
+        responsible = activity.responsible or "Sin asignar"
+        if responsible not in lanes_map:
+            lane_id = f"asis_lane_{len(lanes_map) + 1}"
+            lanes_map[responsible] = BPMNLane(
+                id=lane_id,
+                name=responsible,
+                element_ids=[],
+            )
+        lanes_map[responsible].element_ids.append(task_id)
+
+        doc = activity.description or activity.name
+        if activity.estimated_duration_min:
+            doc += f" | Duración: {activity.estimated_duration_min} min"
+
+        elements.append(BPMNElement(
+            id=task_id,
+            type=bpmn_type,
+            name=activity.name[:50],
+            lane=responsible,
+            documentation=doc,
+        ))
+
+        flows.append(BPMNSequenceFlow(
+            id=f"asis_flow_{flow_counter}",
+            source_ref=previous_id,
+            target_ref=task_id,
+        ))
+        flow_counter += 1
+
+        if _needs_gateway(activity.name) and idx < len(asis.activities):
+            gw_id = f"asis_gateway_{gateway_counter}"
+            gateway_counter += 1
+            elements.append(BPMNElement(
+                id=gw_id,
+                type=BPMNElementType.EXCLUSIVE_GATEWAY,
+                name="¿Aprobado?",
+                lane=responsible,
+            ))
+            flows.append(BPMNSequenceFlow(
+                id=f"asis_flow_{flow_counter}",
+                source_ref=task_id,
+                target_ref=gw_id,
+            ))
+            flow_counter += 1
+            next_id = f"asis_task_{idx + 1}" if idx < len(asis.activities) else "asis_end_1"
+            flows.append(BPMNSequenceFlow(
+                id=f"asis_flow_{flow_counter}",
+                source_ref=gw_id,
+                target_ref=next_id,
+                name="Aprobado",
+            ))
+            flow_counter += 1
+            flows.append(BPMNSequenceFlow(
+                id=f"asis_flow_{flow_counter}",
+                source_ref=gw_id,
+                target_ref=task_id,
+                name="Rechazado",
+            ))
+            flow_counter += 1
+            previous_id = gw_id
+        else:
+            previous_id = task_id
+
+    end_id = "asis_end_1"
+    elements.append(BPMNElement(
+        id=end_id,
+        type=BPMNElementType.END_EVENT,
+        name="Fin",
+        documentation="Fin del proceso AS-IS",
+    ))
+    flows.append(BPMNSequenceFlow(
+        id=f"asis_flow_{flow_counter}",
+        source_ref=previous_id,
+        target_ref=end_id,
+    ))
+
+    return BPMNStructure(
+        process_id=f"ASIS-{asis.id}",
+        process_name=f"{asis.name} (AS-IS)",
+        lanes=list(lanes_map.values()),
+        elements=elements,
+        sequence_flows=flows,
+    )
+
+
+def generate_asis_bpmn(asis: Process) -> str:
+    """Generate AS-IS BPMN XML and save to disk. Returns the file path."""
+    structure = build_bpmn_structure_from_asis(asis)
+    xml_content = _build_xml_from_structure(structure)
+    file_path = _save_bpmn_file(xml_content, f"{asis.name}_asis")
+    logger.info(f"AS-IS BPMN generado: {file_path}")
+    return file_path
+
+
+def node_generate_asis_bpmn(state: AgentState) -> dict:
+    """LangGraph node: generates AS-IS BPMN after extract_asis."""
+    logger.info("── Nodo: generate_asis_bpmn ──")
+    asis = state.asis_process
+    if asis is None or not state.extraction_ok:
+        return {"current_node": "generate_asis_bpmn"}
+    try:
+        file_path = generate_asis_bpmn(asis)
+        return {"bpmn_asis_output": file_path, "current_node": "generate_asis_bpmn"}
+    except Exception as e:
+        logger.warning(f"AS-IS BPMN generation failed (non-blocking): {e}")
+        return {"current_node": "generate_asis_bpmn"}

@@ -1,6 +1,8 @@
 from __future__ import annotations
+import asyncio
 import json
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -76,13 +78,33 @@ app.mount("/docs", StaticFiles(directory="docs"), name="docs")
 _sessions: dict[str, AgentState] = {}
 
 
-def _get_session(session_id: str) -> AgentState:
-    if session_id not in _sessions:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Sesión '{session_id}' no encontrada.",
-        )
-    return _sessions[session_id]
+def _get_session(session_id: str, user_id: Optional[str] = None) -> AgentState:
+    if session_id in _sessions:
+        return _sessions[session_id]
+
+    # Session not in memory — try to recover from SQLite
+    with SessionLocal() as db:
+        record = repo.get_analysis(db, session_id, user_id=user_id)
+    if record and record.status == "completed":
+        state_dict = repo.reconstruct_state_from_db(record)
+        try:
+            state = AgentState(**state_dict)
+        except Exception:
+            state = AgentState(
+                raw_input=record.raw_input or "",
+                current_node="calculate_kpis",
+                kpi_ok=True,
+                user_id=record.user_id,
+                tenant_id=record.tenant_id,
+            )
+        _sessions[session_id] = state
+        logger.info(f"Sesión {session_id} recuperada de SQLite")
+        return state
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Sesión '{session_id}' no encontrada.",
+    )
 
 
 def _assert_session_owner(state: AgentState, current_user: User) -> None:
@@ -126,16 +148,18 @@ class SessionResponse(BaseModel):
 
 
 class AnalysisStatusResponse(BaseModel):
-    session_id:      str
-    current_node:    str
-    extraction_ok:   bool
-    analysis_ok:     bool
-    optimization_ok: bool
-    hitl_required:   bool
-    hitl_approved:   bool
-    bpmn_ok:         bool
-    kpi_ok:          bool
-    errors:          list[str]
+    session_id:          str
+    current_node:        str
+    extraction_ok:       bool
+    analysis_ok:         bool
+    optimization_ok:     bool
+    hitl_asis_required:  bool
+    hitl_asis_approved:  bool
+    hitl_required:       bool
+    hitl_approved:       bool
+    bpmn_ok:             bool
+    kpi_ok:              bool
+    errors:              list[str]
 
 
 # ─────────────────────────────────────────────
@@ -344,7 +368,7 @@ async def get_session_status(
     session_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    state = _get_session(session_id)
+    state = _get_session(session_id, user_id=current_user.id)
     _assert_session_owner(state, current_user)
     return AnalysisStatusResponse(
         session_id=session_id,
@@ -352,6 +376,8 @@ async def get_session_status(
         extraction_ok=state.extraction_ok,
         analysis_ok=state.analysis_ok,
         optimization_ok=state.optimization_ok,
+        hitl_asis_required=state.hitl_asis_required,
+        hitl_asis_approved=state.hitl_asis_approved,
         hitl_required=state.hitl_required,
         hitl_approved=state.hitl_approved,
         bpmn_ok=state.bpmn_ok,
@@ -413,13 +439,28 @@ async def download_bpmn(
     session_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    state = _get_session(session_id)
+    state = _get_session(session_id, user_id=current_user.id)
     _assert_session_owner(state, current_user)
     if not state.bpmn_ok or state.bpmn_output is None:
         raise HTTPException(status_code=425, detail="El diagrama BPMN aún no está disponible.")
     file_path = Path(state.bpmn_output.file_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Archivo BPMN no encontrado en el servidor.")
+    return FileResponse(path=str(file_path), media_type="application/xml", filename=file_path.name)
+
+
+@app.get("/sessions/{session_id}/bpmn/asis", tags=["Resultados"], response_class=FileResponse)
+async def download_asis_bpmn(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    state = _get_session(session_id, user_id=current_user.id)
+    _assert_session_owner(state, current_user)
+    if not state.bpmn_asis_output:
+        raise HTTPException(status_code=425, detail="El diagrama BPMN AS-IS aún no está disponible.")
+    file_path = Path(state.bpmn_asis_output)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Archivo BPMN AS-IS no encontrado en el servidor.")
     return FileResponse(path=str(file_path), media_type="application/xml", filename=file_path.name)
 
 
@@ -497,11 +538,89 @@ async def _resume_pipeline(session_id: str) -> None:
             state.model_dump(),
             config={"configurable": {"thread_id": session_id}},
         )
-        _sessions[session_id] = AgentState(**result)
+        if result and isinstance(result, dict):
+            _sessions[session_id] = AgentState(**result)
+            final_state = _sessions[session_id]
+            if final_state.kpi_ok:
+                full_report = {
+                    "asis_process":   final_state.asis_process.model_dump() if final_state.asis_process else None,
+                    "waste_analysis": final_state.waste_analysis.model_dump() if final_state.waste_analysis else None,
+                    "tobe_process":   final_state.tobe_process.model_dump() if final_state.tobe_process else None,
+                    "kpi_report":     final_state.kpi_report.model_dump() if final_state.kpi_report else None,
+                }
+                score = final_state.waste_analysis.waste_percentage if final_state.waste_analysis else None
+                with SessionLocal() as db:
+                    repo.complete_analysis(db, session_id, full_report, score)
         logger.info(f"Pipeline reanudado post-HITL: {session_id}")
     except Exception as e:
         logger.error(f"Error al reanudar pipeline {session_id}: {e}")
-        _sessions[session_id].errors.append(f"resume_pipeline: {str(e)}")
+        if session_id in _sessions:
+            _sessions[session_id].errors.append(f"resume_pipeline: {str(e)}")
+
+
+# ─────────────────────────────────────────────
+# HITL — AS-IS REVIEW
+# ─────────────────────────────────────────────
+
+@app.get("/sessions/{session_id}/asis-review", tags=["HITL"])
+async def get_asis_review(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    state = _get_session(session_id, user_id=current_user.id)
+    _assert_session_owner(state, current_user)
+    if not state.hitl_asis_required:
+        raise HTTPException(status_code=425, detail="No hay revisión AS-IS pendiente.")
+    asis = state.asis_process
+    waste = state.waste_analysis
+    return {
+        "session_id": session_id,
+        "asis_process": asis.model_dump() if asis else None,
+        "waste_summary": {
+            "waste_percentage":    waste.waste_percentage if waste else None,
+            "total_waste_time_min": waste.total_waste_time_min if waste else None,
+            "top_wastes": [
+                {"waste_type": w.waste_type, "activity": w.activity_name}
+                for w in (waste.activities or [])[:5]
+                if w.classification == "Desperdicio"
+            ] if waste else [],
+        },
+    }
+
+
+@app.post("/sessions/{session_id}/asis-review", response_model=SessionResponse, tags=["HITL"])
+async def submit_asis_review(
+    session_id: str,
+    review: HITLReviewRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+):
+    state = _get_session(session_id, user_id=current_user.id)
+    _assert_session_owner(state, current_user)
+
+    if not state.hitl_asis_required:
+        raise HTTPException(status_code=400, detail="Esta sesión no tiene revisión AS-IS pendiente.")
+
+    state.hitl_asis_approved = review.approved
+    state.hitl_asis_feedback = review.feedback or ""
+    state.hitl_asis_required = False
+
+    if not review.approved and review.feedback.strip():
+        # Re-extract AS-IS with analyst feedback as correction hint
+        state.raw_input = state.raw_input + f"\n\n[Corrección del analista: {review.feedback}]"
+
+    _sessions[session_id] = state
+    background_tasks.add_task(_resume_pipeline, session_id)
+
+    action = "aprobado" if review.approved else "rechazado — re-extrayendo AS-IS"
+    logger.info(f"AS-IS HITL {session_id}: {action}")
+
+    return SessionResponse(
+        session_id=session_id,
+        message=f"Revisión AS-IS registrada: {action}.",
+        current_node=state.current_node,
+        status="running",
+    )
 
 
 # ─────────────────────────────────────────────
@@ -587,7 +706,7 @@ async def delete_session(
     session_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    state = _get_session(session_id)
+    state = _get_session(session_id, user_id=current_user.id)
     _assert_session_owner(state, current_user)
     del _sessions[session_id]
     return {"message": f"Sesión '{session_id}' eliminada."}
@@ -611,3 +730,41 @@ async def list_sessions(current_user: User = Depends(get_current_user)):
             for sid, s in user_sessions.items()
         ],
     }
+
+
+# ─────────────────────────────────────────────
+# HITL TIMEOUT MONITOR
+# ─────────────────────────────────────────────
+
+HITL_TIMEOUT_HOURS = 24
+
+
+async def hitl_timeout_monitor() -> None:
+    """Background task: marks stale HITL sessions as timed_out every hour."""
+    while True:
+        await asyncio.sleep(3600)
+        now = datetime.now(timezone.utc)
+        for sid, state in list(_sessions.items()):
+            asis_stale = (
+                state.hitl_asis_required
+                and not state.hitl_asis_approved
+                and state.hitl_asis_started_at is not None
+                and (now - state.hitl_asis_started_at).total_seconds() > HITL_TIMEOUT_HOURS * 3600
+            )
+            tobe_stale = (
+                state.hitl_required
+                and not state.hitl_approved
+                and state.hitl_retries > 0
+                # hitl_retries > 0 means the node was reached; use a proxy for started_at
+            )
+            if asis_stale or tobe_stale:
+                state.current_node = "timed_out"
+                state.errors.append("HITL timeout: sesión expirada sin revisión en 24h")
+                _sessions[sid] = state
+                logger.warning(f"HITL timeout: sesión {sid} marcada como timed_out")
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    asyncio.create_task(hitl_timeout_monitor())
+    logger.info("HITL timeout monitor iniciado")

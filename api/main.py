@@ -77,6 +77,9 @@ app.mount("/docs", StaticFiles(directory="docs"), name="docs")
 
 _sessions: dict[str, AgentState] = {}
 
+# Source upload metadata (in-memory; replace with DB in production)
+_session_sources: dict[str, list[dict]] = {}
+
 
 def _get_session(session_id: str, user_id: Optional[str] = None) -> AgentState:
     if session_id in _sessions:
@@ -138,6 +141,10 @@ class AnalyzeTextRequest(BaseModel):
 class HITLReviewRequest(BaseModel):
     approved: bool = Field(..., description="True = aprobado, False = requiere cambios")
     feedback: str  = Field(default="", description="Comentarios del revisor")
+
+
+class RefineRequest(BaseModel):
+    instruction: str = Field(..., min_length=5, description="Natural-language instruction to modify the TO-BE process")
 
 
 class SessionResponse(BaseModel):
@@ -758,6 +765,118 @@ async def list_sessions(current_user: User = Depends(get_current_user)):
             }
             for sid, s in user_sessions.items()
         ],
+    }
+
+
+# ─────────────────────────────────────────────
+# SOURCES — per-session document upload
+# ─────────────────────────────────────────────
+
+@app.post("/sessions/{session_id}/sources", tags=["Sources"])
+async def upload_source(
+    session_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload an additional source document to an active session's RAG context."""
+    state = _get_session(session_id, user_id=current_user.id)
+    _assert_session_owner(state, current_user)
+
+    sources_dir = Path(f"storage/outputs/sources/{session_id}")
+    sources_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = file.filename or "upload"
+    file_path = sources_dir / filename
+    file_path.write_bytes(await file.read())
+
+    try:
+        extracted_text = load_document(str(file_path))
+    except (ValueError, FileNotFoundError) as e:
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"Cannot extract text from file: {e}")
+
+    snippet = extracted_text[:2000]
+    state.rag_context.append(f"\n\nAdditional source ({filename}): {snippet}")
+    state.additional_sources.append(snippet)
+    _sessions[session_id] = state
+
+    meta = {
+        "filename":    filename,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "chars":       len(extracted_text),
+    }
+    _session_sources.setdefault(session_id, []).append(meta)
+
+    logger.info(f"Source uploaded for session {session_id}: {filename} ({len(extracted_text)} chars)")
+    return {"filename": filename, "extracted_chars": len(extracted_text), "status": "added"}
+
+
+@app.get("/sessions/{session_id}/sources", tags=["Sources"])
+async def list_sources(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Return list of uploaded source files for a session."""
+    state = _get_session(session_id, user_id=current_user.id)
+    _assert_session_owner(state, current_user)
+    return {"sources": _session_sources.get(session_id, [])}
+
+
+# ─────────────────────────────────────────────
+# REFINEMENT — modify TO-BE without re-running full pipeline
+# ─────────────────────────────────────────────
+
+@app.post("/sessions/{session_id}/refine", tags=["Refinement"])
+async def refine_session(
+    session_id: str,
+    body: RefineRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Modify the TO-BE process with a natural-language instruction,
+    then regenerate the BPMN and recalculate KPIs — without restarting the pipeline.
+    Only works when kpi_ok is True.
+    """
+    from agent.refiner import refine_tobe_process
+    from agent.bpmn_generator import node_generate_bpmn
+    from agent.kpi_calculator import node_calculate_kpis
+
+    state = _get_session(session_id, user_id=current_user.id)
+    _assert_session_owner(state, current_user)
+
+    if not state.kpi_ok:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pipeline must be complete (kpi_ok=True) before refinement.",
+        )
+    if not state.tobe_process:
+        raise HTTPException(status_code=400, detail="No TO-BE process found in session.")
+
+    try:
+        new_tobe = refine_tobe_process(state.tobe_process, body.instruction)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Refinement LLM error: {e}")
+
+    state.tobe_process  = new_tobe
+    state.hitl_approved = True  # bypass HITL gate in node_generate_bpmn
+
+    bpmn_update = node_generate_bpmn(state)
+    for k, v in bpmn_update.items():
+        if hasattr(state, k):
+            setattr(state, k, v)
+
+    kpi_update = node_calculate_kpis(state)
+    for k, v in kpi_update.items():
+        if hasattr(state, k):
+            setattr(state, k, v)
+
+    _sessions[session_id] = state
+
+    logger.info(f"Session {session_id} refined: bpmn_ok={state.bpmn_ok}, kpi_ok={state.kpi_ok}")
+    return {
+        "tobe_process": state.tobe_process.model_dump(),
+        "bpmn_updated": state.bpmn_ok,
+        "kpis_updated": state.kpi_report.model_dump() if state.kpi_report else None,
     }
 
 

@@ -1721,6 +1721,85 @@ tbody tr:hover { background: var(--surface-2); }
 .sigma-label { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
 .sigma-arrow { font-size: 2rem; color: var(--border-med); }
 
+.source-upload-area {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  text-align: center;
+  margin: 0.5rem 0;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.source-upload-area:hover { border-color: var(--accent); }
+.btn-add-source {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  width: 100%;
+  margin-bottom: 0.35rem;
+}
+.source-upload-hint { font-size: 0.7rem; color: var(--muted); }
+.source-item-status  { font-size: 0.65rem; color: #10b981; }
+
+.apply-prompt {
+  background: rgba(16,185,129,0.08);
+  border: 1px solid rgba(16,185,129,0.25);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+.apply-prompt-label {
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.btn-apply {
+  padding: 0.35rem 0.9rem;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+.btn-keep {
+  padding: 0.35rem 0.9rem;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  margin-left: 0.5rem;
+}
+.toast-success {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: #10b981;
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
 .report-section-title {
   font-size: 1.1rem;
   font-weight: 700;

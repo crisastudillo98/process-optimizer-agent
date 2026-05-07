@@ -139,6 +139,23 @@ export const sessions = {
     apiRequest('DELETE', `/sessions/${id}`)
 };
 
+// Sources
+export const sources = {
+  upload: (sessionId, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return apiUpload(`/sessions/${sessionId}/sources`, fd);
+  },
+  list: (sessionId) =>
+    apiRequest('GET', `/sessions/${sessionId}/sources`)
+};
+
+// Refinement
+export const refinement = {
+  refine: (sessionId, instruction) =>
+    apiRequest('POST', `/sessions/${sessionId}/refine`, { instruction })
+};
+
 // Chat
 export const chat = {
   send: (session_id, mensaje, contexto_analisis) =>

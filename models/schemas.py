@@ -401,6 +401,9 @@ class AgentState(BaseModel):
     # Nodo 3: RAG context
     rag_context: list[str]                = Field(default_factory=list, description="Fragmentos recuperados")
 
+    # Additional sources uploaded via /sessions/{id}/sources
+    additional_sources: list[str]         = Field(default_factory=list, description="Texto extraído de fuentes adicionales")
+
     # Nodo 4: Optimizer
     tobe_process: Optional[TOBEProcess]   = None
     optimization_ok: bool                 = False

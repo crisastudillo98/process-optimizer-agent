@@ -106,8 +106,23 @@
       </div>
 
       <div>
-        <div class="panel-section-title" style="margin-bottom:0.75rem;">ADD SOURCE</div>
-        <input type="text" placeholder="Meeting link or URL" style="font-size:0.8rem;padding:0.4rem 0.7rem;" title="Coming in Sprint 3">
+        <div class="panel-section-title" style="margin-bottom:0.75rem;">SOURCES</div>
+        <div id="sources-list"></div>
+        <div class="source-upload-area" id="source-drop-zone">
+          <input type="file" id="source-file-input"
+                 accept=".pdf,.xlsx,.xls,.txt,.docx"
+                 style="display:none" onchange="handleSourceFile(this.files[0])">
+          <button class="btn-add-source" type="button"
+                  onclick="document.getElementById('source-file-input').click()">
+            + Add Document
+          </button>
+          <div class="source-upload-hint">PDF, Excel, Word, TXT</div>
+        </div>
+        <div style="margin-top:0.5rem;display:flex;gap:0.4rem;">
+          <input type="text" id="meeting-link-input" placeholder="Paste meeting link or URL"
+                 style="font-size:0.78rem;padding:0.35rem 0.6rem;flex:1;min-width:0;">
+          <button onclick="addMeetingLink()" style="font-size:0.72rem;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap;">Add</button>
+        </div>
       </div>
     </div>
 
@@ -206,7 +221,7 @@
 </div>
 
 <script type="module">
-  import { requireAuth, auth, sessions, chat, apiBlob } from './js/api.js';
+  import { requireAuth, auth, sessions, chat, sources, refinement, apiBlob } from './js/api.js';
   import { setUser, setReport, state } from './js/state.js';
 
   if (!requireAuth()) throw new Error('Not authenticated');
@@ -244,6 +259,7 @@
     });
 
     await pollStatus();
+    loadSources();
   }
 
   // ── Polling ───────────────────────────────────────────
@@ -621,7 +637,12 @@
     try {
       const res = await chat.send(sessionId, msg, window.__lastReport);
       loader.remove();
-      if (res) appendBubble(res.respuesta, 'agent');
+      if (res) {
+        appendBubble(res.respuesta, 'agent');
+        if (window.__lastReport?.kpi_ok && hasActionKeywords(msg)) {
+          showApplyPrompt(msg);
+        }
+      }
     } catch (e) {
       loader.remove();
       appendBubble('Error: ' + e.message, 'agent');
@@ -711,6 +732,118 @@
       msgs.insertBefore(fragment, msgs.firstChild);
       msgs.scrollTop = msgs.scrollHeight;
     } catch(_) {}
+  }
+
+  // ── Sources ───────────────────────────────────────────
+  async function loadSources() {
+    try {
+      const data = await sources.list(sessionId);
+      renderSourcesList(data.sources || []);
+    } catch(_) {}
+  }
+
+  function renderSourcesList(list) {
+    const el = document.getElementById('sources-list');
+    if (!list.length) { el.innerHTML = ''; return; }
+    el.innerHTML = list.map(s => `
+      <div class="source-item">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <rect x="1" y="1" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M3 4h6M3 7h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(s.filename)}</span>
+        <span class="source-item-status">✓</span>
+      </div>`).join('');
+  }
+
+  window.handleSourceFile = async function(file) {
+    if (!file) return;
+    const list = document.getElementById('sources-list');
+    const uploading = document.createElement('div');
+    uploading.className = 'source-item';
+    uploading.innerHTML = `<span style="color:var(--muted);font-size:0.75rem;">Uploading ${escHtml(file.name)}…</span>`;
+    list.appendChild(uploading);
+    try {
+      await sources.upload(sessionId, file);
+      await loadSources();
+    } catch(e) {
+      uploading.innerHTML = `<span style="color:var(--alta);font-size:0.75rem;">Failed: ${escHtml(e.message)}</span>`;
+      setTimeout(() => uploading.remove(), 4000);
+    }
+    document.getElementById('source-file-input').value = '';
+  };
+
+  window.addMeetingLink = function() {
+    const input = document.getElementById('meeting-link-input');
+    const url = input.value.trim();
+    if (!url) return;
+    const list = document.getElementById('sources-list');
+    const item = document.createElement('div');
+    item.className = 'source-item';
+    item.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M4 6h4M6 4v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.74rem;">${escHtml(url)}</span>`;
+    list.appendChild(item);
+    input.value = '';
+  };
+
+  // ── BPMN Refinement ──────────────────────────────────
+  const ACTION_KEYWORDS = [
+    'modify','change','remove','add','update','eliminate','replace','apply','implement',
+    'cambiar','eliminar','agregar','modificar','aplicar','añadir','quitar','reemplazar'
+  ];
+
+  function hasActionKeywords(msg) {
+    const lower = msg.toLowerCase();
+    return ACTION_KEYWORDS.some(k => lower.includes(k));
+  }
+
+  function showApplyPrompt(instruction) {
+    const msgs = document.getElementById('chat-messages');
+    const prompt = document.createElement('div');
+    prompt.className = 'apply-prompt';
+    prompt.innerHTML = `
+      <span class="apply-prompt-label">🔧 Apply this change to the TO-BE?</span>
+      <div>
+        <button class="btn-apply" onclick="applyToBpmn(this, ${JSON.stringify(instruction)})">✓ Apply to BPMN</button>
+        <button class="btn-keep" onclick="this.closest('.apply-prompt').remove()">✗ Keep as suggestion</button>
+      </div>`;
+    msgs.appendChild(prompt);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  window.applyToBpmn = async function(btn, instruction) {
+    const prompt = btn.closest('.apply-prompt');
+    prompt.innerHTML = '<span style="color:var(--muted);font-size:0.82rem;">Applying changes…</span>';
+    try {
+      const result = await refinement.refine(sessionId, instruction);
+      prompt.remove();
+      if (result.bpmn_updated) {
+        // Reload BPMN
+        const blob = await apiBlob(`/sessions/${sessionId}/bpmn`);
+        bpmnXml = await blob.text();
+        if (bpmnViewer) {
+          await bpmnViewer.importXML(bpmnXml);
+          bpmnViewer.get('canvas').zoom('fit-viewport');
+        }
+        // Update KPIs in right panel
+        if (result.kpis_updated && window.__lastReport) {
+          window.__lastReport.kpi_report = result.kpis_updated;
+          populateRightPanel(window.__lastReport);
+        }
+        showToast('✓ BPMN updated successfully');
+        appendBubble('✓ Changes applied to the TO-BE process. The BPMN diagram and metrics have been updated.', 'agent');
+      }
+    } catch(e) {
+      prompt.innerHTML = `<span style="color:var(--alta);font-size:0.82rem;">Failed: ${escHtml(e.message)}</span>`;
+      setTimeout(() => prompt.remove(), 5000);
+    }
+  };
+
+  function showToast(msg) {
+    const toast = document.createElement('div');
+    toast.className = 'toast-success';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
   }
 
   // ── Panel tabs ────────────────────────────────────────

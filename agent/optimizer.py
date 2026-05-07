@@ -304,6 +304,11 @@ def node_hitl_review_asis(state: AgentState) -> dict:
     from datetime import datetime, timezone
     logger.info("── Nodo: hitl_review_asis ──")
 
+    # Guard: already approved (graph re-invoked after HITL approval)
+    if state.hitl_asis_approved:
+        logger.info("AS-IS ya aprobado — continuando pipeline")
+        return {"current_node": "hitl_review_asis"}
+
     if not settings.hitl_enabled:
         logger.info("HITL desactivado — AS-IS aprobado automáticamente")
         return {

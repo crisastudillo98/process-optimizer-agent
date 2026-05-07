@@ -307,21 +307,6 @@ def _enrich_kpis_with_llm(
     Llama al LLM para enriquecer los KPIs con interpretaciones de negocio.
     Si falla, el sistema continúa con los KPIs cuantitativos sin enriquecimiento.
     """
-    json_schema = json.dumps(
-        {
-            "executive_summary": "string",
-            "kpi_enrichments": {
-                "cycle_time":          KPIEnrichment.model_json_schema(),
-                "headcount":           KPIEnrichment.model_json_schema(),
-                "waste_reduction":     KPIEnrichment.model_json_schema(),
-                "automation_coverage": KPIEnrichment.model_json_schema(),
-                "process_efficiency":  KPIEnrichment.model_json_schema(),
-            }
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
-
     automated_count = sum(
         1 for a in tobe.activities
         if a.status == ActivityStatus.AUTOMATED
@@ -344,7 +329,6 @@ def _enrich_kpis_with_llm(
             else kpis["cycle_time"].reduction_pct
         ),
         "kpis_json":           json.dumps(kpis, default=str, ensure_ascii=False, indent=2),
-        "json_schema":         json_schema,
     })
 
 

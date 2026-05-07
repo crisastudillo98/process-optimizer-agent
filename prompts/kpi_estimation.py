@@ -47,8 +47,46 @@ Reducción de tiempo: {time_reduction_pct}%
 ── KPIs CALCULADOS ────────────────────────────────────
 {kpis_json}
 
-── ESQUEMA JSON REQUERIDO ─────────────────────────────
-{json_schema}
+── FORMATO DE RESPUESTA REQUERIDO ─────────────────────
+IMPORTANTE: Responde ÚNICAMENTE con datos reales del proceso — NO respondas con un JSON Schema
+ni con meta-descripciones de tipos. Cada campo debe contener valores concretos y textuales.
+
+Ejemplo del formato esperado (con valores ficticios para ilustrar):
+{{
+  "executive_summary": "La optimización del proceso reduce el tiempo de ciclo en 45%, elimina el 60% de los desperdicios Lean y eleva la automatización al 70%. El ROI estimado es 320% con recuperación en 4.2 meses.",
+  "kpi_enrichments": {{
+    "cycle_time": {{
+      "business_interpretation": "Reducir el ciclo de 240 a 132 minutos permite procesar el doble de solicitudes diarias sin ampliar el equipo.",
+      "industry_benchmark": "Procesos Lean maduros alcanzan reducciones del 40-60% en el primer año.",
+      "implementation_risks": "Resistencia al cambio en el equipo; riesgo de retrasos en la automatización de aprobaciones.",
+      "recommended_next_step": "Pilotar el nuevo flujo con el 20% de los casos durante 2 semanas antes del despliegue total."
+    }},
+    "headcount": {{
+      "business_interpretation": "...",
+      "industry_benchmark": "...",
+      "implementation_risks": "...",
+      "recommended_next_step": "..."
+    }},
+    "waste_reduction": {{
+      "business_interpretation": "...",
+      "industry_benchmark": "...",
+      "implementation_risks": "...",
+      "recommended_next_step": "..."
+    }},
+    "automation_coverage": {{
+      "business_interpretation": "...",
+      "industry_benchmark": "...",
+      "implementation_risks": "...",
+      "recommended_next_step": "..."
+    }},
+    "process_efficiency": {{
+      "business_interpretation": "...",
+      "industry_benchmark": "...",
+      "implementation_risks": "...",
+      "recommended_next_step": "..."
+    }}
+  }}
+}}
 
 Responde solo con el JSON. Sin markdown, sin bloques de código, solo el objeto JSON puro.
 """.strip()

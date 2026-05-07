@@ -174,7 +174,7 @@
           <button class="bpmn-subtab active" onclick="switchBpmnView('asis', this)">AS-IS</button>
           <button class="bpmn-subtab" onclick="switchBpmnView('tobe', this)">TO-BE</button>
         </div>
-        <div id="bpmn-loading" style="color:var(--muted);font-size:0.82rem;padding:1rem 0;">Loading diagram...</div>
+        <div id="bpmn-loading" style="color:var(--muted);font-size:0.82rem;padding:1rem 0;">Diagram will appear when analysis is complete.</div>
         <div class="bpmn-viewer" id="bpmn-viewer-container" style="display:none;"></div>
         <div class="bpmn-zoom-controls" id="bpmn-zoom-controls" style="display:none;">
           <button class="bpmn-zoom-btn" onclick="bpmnZoom('fit')">Fit</button>
@@ -215,6 +215,7 @@
   let bpmnAsisXml = null;
   let pollTimer = null;
   let __hitlMode = null; // 'asis' or 'tobe'
+  let asisBannerDismissed = false;
 
   // ── Init ──────────────────────────────────────────────
   async function init() {
@@ -246,7 +247,7 @@
       document.getElementById('left-process-name').textContent = name;
 
       // Check HITL flags — AS-IS takes priority
-      if (status.hitl_asis_required && !status.hitl_asis_approved) {
+      if (status.hitl_asis_required && !status.hitl_asis_approved && !asisBannerDismissed) {
         __hitlMode = 'asis';
         await showAsisReviewBanner();
         document.getElementById('ws-status-label').textContent = 'Waiting for AS-IS review…';
@@ -305,6 +306,7 @@
 
   // ── BPMN ─────────────────────────────────────────────
   async function loadBpmn() {
+    document.getElementById('bpmn-loading').textContent = 'Loading diagram…';
     try {
       const blob = await apiBlob(`/sessions/${sessionId}/bpmn`);
       bpmnXml = await blob.text();
@@ -511,6 +513,7 @@
       document.getElementById('hitl-approve-btn').disabled = true;
       if (__hitlMode === 'asis') {
         await sessions.asisApprove(sessionId, true);
+        asisBannerDismissed = true;
         document.getElementById('ws-status-label').textContent = 'AS-IS approved — generating TO-BE…';
       } else {
         await sessions.review(sessionId, true);

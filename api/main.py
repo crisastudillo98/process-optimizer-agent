@@ -532,25 +532,54 @@ async def submit_hitl_review(
 
 
 async def _resume_pipeline(session_id: str) -> None:
+    from rag.retriever import node_retrieve_rag
+    from agent.optimizer import node_optimize_tobe, node_hitl_review
+    from agent.bpmn_generator import node_generate_bpmn
+    from agent.kpi_calculator import node_calculate_kpis
+
     state = _sessions[session_id]
     try:
-        result = optimizer_graph.invoke(
-            state.model_dump(),
-            config={"configurable": {"thread_id": session_id}},
-        )
-        if result and isinstance(result, dict):
-            _sessions[session_id] = AgentState(**result)
-            final_state = _sessions[session_id]
-            if final_state.kpi_ok:
-                full_report = {
-                    "asis_process":   final_state.asis_process.model_dump() if final_state.asis_process else None,
-                    "waste_analysis": final_state.waste_analysis.model_dump() if final_state.waste_analysis else None,
-                    "tobe_process":   final_state.tobe_process.model_dump() if final_state.tobe_process else None,
-                    "kpi_report":     final_state.kpi_report.model_dump() if final_state.kpi_report else None,
-                }
-                score = final_state.waste_analysis.waste_percentage if final_state.waste_analysis else None
-                with SessionLocal() as db:
-                    repo.complete_analysis(db, session_id, full_report, score)
+        # AS-IS HITL resume: call remaining nodes directly instead of
+        # re-invoking the full graph (which always starts from load_document)
+        if state.hitl_asis_approved and not state.optimization_ok:
+            logger.info(f"Reanudando pipeline post-AS-IS HITL: {session_id}")
+            current = state.model_dump()
+            for node_fn in [
+                node_retrieve_rag,
+                node_optimize_tobe,
+                node_hitl_review,
+                node_generate_bpmn,
+                node_calculate_kpis,
+            ]:
+                update = node_fn(AgentState(**current))
+                current.update(update)
+                _sessions[session_id] = AgentState(**current)
+                # Pause here if TO-BE HITL is triggered
+                if current.get("hitl_required") and not current.get("hitl_approved"):
+                    logger.info(f"TO-BE HITL activo — pipeline suspendido: {session_id}")
+                    return
+        else:
+            # TO-BE HITL resume: graph can re-run because hitl_asis_approved=True
+            # guards the asis hitl node; route_after_asis_hitl sends to retrieve_rag
+            result = optimizer_graph.invoke(
+                state.model_dump(),
+                config={"configurable": {"thread_id": session_id}},
+            )
+            if result and isinstance(result, dict):
+                current = result
+                _sessions[session_id] = AgentState(**current)
+
+        final_state = _sessions[session_id]
+        if final_state.kpi_ok:
+            full_report = {
+                "asis_process":   final_state.asis_process.model_dump() if final_state.asis_process else None,
+                "waste_analysis": final_state.waste_analysis.model_dump() if final_state.waste_analysis else None,
+                "tobe_process":   final_state.tobe_process.model_dump() if final_state.tobe_process else None,
+                "kpi_report":     final_state.kpi_report.model_dump() if final_state.kpi_report else None,
+            }
+            score = final_state.waste_analysis.waste_percentage if final_state.waste_analysis else None
+            with SessionLocal() as db:
+                repo.complete_analysis(db, session_id, full_report, score)
         logger.info(f"Pipeline reanudado post-HITL: {session_id}")
     except Exception as e:
         logger.error(f"Error al reanudar pipeline {session_id}: {e}")
@@ -581,8 +610,8 @@ async def get_asis_review(
             "total_waste_time_min": waste.total_waste_time_min if waste else None,
             "top_wastes": [
                 {"waste_type": w.waste_type, "activity": w.activity_name}
-                for w in (waste.activities or [])[:5]
-                if w.classification == "Desperdicio"
+                for w in (waste.activity_details or [])[:5]
+                if w.waste_classification == "desperdicio"
             ] if waste else [],
         },
     }

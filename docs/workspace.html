@@ -640,7 +640,8 @@
       }
       _hideBanner();
       __hitlMode = null;
-      await pollStatus();
+      if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+      pollStatus();
     } catch (e) {
       alert('Error: ' + e.message);
       document.getElementById('hitl-approve-btn').disabled = false;

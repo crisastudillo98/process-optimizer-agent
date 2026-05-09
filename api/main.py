@@ -16,7 +16,7 @@ from agent.orchestrator import optimizer_graph, build_graph
 from agent.document_loader import load_document
 from agent.chat_agent import router as chat_router
 from api.auth import router as auth_router
-from auth.dependencies import get_current_user, require_admin
+from auth.dependencies import get_current_user, get_optional_user, require_admin
 from models.schemas import (
     AgentState,
     KPIReportV2,
@@ -28,7 +28,7 @@ from config.settings import settings
 from observability.logger import get_logger
 from storage.database import SessionLocal
 from storage import models as db_models
-from storage.models import User
+from storage.models import User, ProcessCollaborator, Invitation, Notification
 from storage import repository as repo
 # Schema is managed by Alembic — do NOT call create_all here
 
@@ -767,24 +767,45 @@ async def list_analyses(
     current_user: User = Depends(get_current_user),
 ):
     with SessionLocal() as db:
-        records = repo.list_analyses(db, limit=limit, offset=offset, user_id=current_user.id)
-    return {
-        "total": len(records),
-        "analyses": [
-            {
-                "id":                       r.id,
-                "process_name":             r.process_name,
-                "status":                   r.status,
-                "score":                    r.score,
-                "cycle_time_reduction_pct": r.cycle_time_reduction_pct,
-                "automation_coverage_pct":  r.automation_coverage_pct,
-                "created_at":               r.created_at.isoformat() if r.created_at else None,
-                "completed_at":             r.completed_at.isoformat() if r.completed_at else None,
-                "has_errors":               r.has_errors,
-            }
-            for r in records
-        ],
-    }
+        # Analyses owned by user
+        owned = repo.list_analyses(db, limit=limit, offset=offset, user_id=current_user.id)
+
+        # Analyses where user is a collaborator (active or completed)
+        collaborated_query = (
+            db.query(db_models.Analysis, ProcessCollaborator)
+            .join(ProcessCollaborator, ProcessCollaborator.analysis_id == db_models.Analysis.id)
+            .filter(
+                ProcessCollaborator.user_id == current_user.id,
+                ProcessCollaborator.status.in_(["active", "completed"]),
+            )
+            .all()
+        )
+
+        owned_ids = {r.id for r in owned}
+        collab_map: dict = {}
+        for analysis, collab in collaborated_query:
+            if analysis.id not in owned_ids:
+                collab_map[analysis.id] = (analysis, collab.status)
+
+    def _fmt(r, is_owner: bool, collaborator_status=None):
+        return {
+            "id":                       r.id,
+            "process_name":             r.process_name,
+            "status":                   r.status,
+            "score":                    r.score,
+            "cycle_time_reduction_pct": r.cycle_time_reduction_pct,
+            "automation_coverage_pct":  r.automation_coverage_pct,
+            "created_at":               r.created_at.isoformat() if r.created_at else None,
+            "completed_at":             r.completed_at.isoformat() if r.completed_at else None,
+            "has_errors":               r.has_errors,
+            "is_owner":                 is_owner,
+            "collaborator_status":      collaborator_status,
+        }
+
+    analyses = [_fmt(r, is_owner=True) for r in owned]
+    analyses += [_fmt(r, is_owner=False, collaborator_status=status) for r, status in collab_map.values()]
+
+    return {"total": len(analyses), "analyses": analyses}
 
 
 @app.get("/analyses/{session_id}", tags=["Historial"])
@@ -950,6 +971,349 @@ async def refine_session(
         "bpmn_updated": state.bpmn_ok,
         "kpis_updated": state.kpi_report.model_dump() if state.kpi_report else None,
     }
+
+
+# ─────────────────────────────────────────────
+# COLLABORATION — Process Collaborators
+# ─────────────────────────────────────────────
+
+class InviteCollaboratorRequest(BaseModel):
+    email: str = Field(..., description="Email of the person to invite")
+    message: str = Field(default="", description="Optional personal message")
+
+
+@app.post("/analyses/{analysis_id}/invite", tags=["Collaboration"])
+async def invite_collaborator(
+    analysis_id: str,
+    body: InviteCollaboratorRequest,
+    current_user: User = Depends(get_current_user),
+):
+    import json as _json
+    from datetime import timedelta
+
+    with SessionLocal() as db:
+        analysis = db.query(db_models.Analysis).filter(
+            db_models.Analysis.id == analysis_id,
+            db_models.Analysis.tenant_id == current_user.tenant_id,
+        ).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis not found.")
+        if analysis.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the process owner can invite collaborators.")
+
+        # Check if invitee already exists in same tenant
+        invitee = db.query(User).filter(
+            User.email == body.email,
+            User.tenant_id == current_user.tenant_id,
+        ).first()
+
+        if invitee:
+            # Create collaborator record (pending)
+            collab = ProcessCollaborator(
+                analysis_id=analysis_id,
+                user_id=invitee.id,
+                invited_by=current_user.id,
+                status="pending",
+            )
+            db.add(collab)
+
+            # Notify the invitee in-app
+            notif = Notification(
+                user_id=invitee.id,
+                type="process_invitation",
+                title=f"Invitación a colaborar en {analysis.process_name}",
+                message=f"{current_user.full_name} te invitó a colaborar",
+                data=_json.dumps({
+                    "analysis_id": analysis_id,
+                    "analysis_name": analysis.process_name,
+                    "invited_by_name": current_user.full_name,
+                }),
+            )
+            db.add(notif)
+            db.commit()
+
+            logger.info(f"Collaboration invited (existing user): analysis={analysis_id} invitee={invitee.email}")
+            return {"status": "invited", "user_found": True}
+
+        else:
+            # Create external invitation with a unique token
+            token = str(uuid.uuid4())
+            invitation = Invitation(
+                email=body.email,
+                analysis_id=analysis_id,
+                invited_by=current_user.id,
+                role="colaborador",
+                token=token,
+                status="pending",
+                expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+            )
+            db.add(invitation)
+            db.commit()
+
+            invite_url = f"/accept-invite/{token}"
+            logger.info(f"Invitation created (external): analysis={analysis_id} email={body.email}")
+            return {
+                "status": "invited",
+                "user_found": False,
+                "invite_token": token,
+                "invite_url": invite_url,
+            }
+
+
+@app.get("/analyses/{analysis_id}/collaborators", tags=["Collaboration"])
+async def list_collaborators(
+    analysis_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    with SessionLocal() as db:
+        analysis = db.query(db_models.Analysis).filter(
+            db_models.Analysis.id == analysis_id,
+            db_models.Analysis.tenant_id == current_user.tenant_id,
+        ).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis not found.")
+        if analysis.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the process owner can view collaborators.")
+
+        collabs = db.query(ProcessCollaborator).filter(
+            ProcessCollaborator.analysis_id == analysis_id,
+        ).all()
+
+        result = []
+        for c in collabs:
+            user = db.query(User).filter(User.id == c.user_id).first()
+            result.append({
+                "user_id": c.user_id,
+                "full_name": user.full_name if user else "Unknown",
+                "email": user.email if user else "Unknown",
+                "status": c.status,
+                "completed_at": c.completed_at.isoformat() if c.completed_at else None,
+            })
+
+    return {"collaborators": result}
+
+
+@app.post("/analyses/{analysis_id}/collaborators/{user_id}/complete", tags=["Collaboration"])
+async def complete_collaboration(
+    analysis_id: str,
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    import json as _json
+
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="You can only complete your own collaboration.")
+
+    with SessionLocal() as db:
+        collab = db.query(ProcessCollaborator).filter(
+            ProcessCollaborator.analysis_id == analysis_id,
+            ProcessCollaborator.user_id == user_id,
+        ).first()
+        if not collab:
+            raise HTTPException(status_code=404, detail="Collaboration record not found.")
+
+        analysis = db.query(db_models.Analysis).filter(
+            db_models.Analysis.id == analysis_id,
+        ).first()
+
+        collab.status = "completed"
+        collab.completed_at = datetime.now(timezone.utc)
+
+        # Notify the analysis owner
+        if analysis and analysis.user_id:
+            notif = Notification(
+                user_id=analysis.user_id,
+                type="collaborator_completed",
+                title=f"{current_user.full_name} completó su colaboración",
+                message=f"Ya puedes ver su aporte en {analysis.process_name}",
+                data=_json.dumps({
+                    "analysis_id": analysis_id,
+                    "collaborator_id": user_id,
+                    "collaborator_name": current_user.full_name,
+                }),
+            )
+            db.add(notif)
+
+        db.commit()
+        logger.info(f"Collaboration completed: analysis={analysis_id} user={user_id}")
+
+    return {"status": "completed"}
+
+
+# ─────────────────────────────────────────────
+# NOTIFICATIONS
+# ─────────────────────────────────────────────
+
+@app.get("/notifications", tags=["Notifications"])
+async def list_notifications(
+    unread_only: bool = False,
+    current_user: User = Depends(get_current_user),
+):
+    with SessionLocal() as db:
+        q = db.query(Notification).filter(Notification.user_id == current_user.id)
+        if unread_only:
+            q = q.filter(Notification.read == False)
+        notifications = q.order_by(Notification.created_at.desc()).all()
+        unread_count = db.query(Notification).filter(
+            Notification.user_id == current_user.id,
+            Notification.read == False,
+        ).count()
+
+        result = [
+            {
+                "id": n.id,
+                "type": n.type,
+                "title": n.title,
+                "message": n.message,
+                "data": n.data,
+                "read": n.read,
+                "created_at": n.created_at.isoformat() if n.created_at else None,
+            }
+            for n in notifications
+        ]
+
+    return {"notifications": result, "unread_count": unread_count}
+
+
+@app.post("/notifications/{notification_id}/read", tags=["Notifications"])
+async def mark_notification_read(
+    notification_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    with SessionLocal() as db:
+        notif = db.query(Notification).filter(
+            Notification.id == notification_id,
+            Notification.user_id == current_user.id,
+        ).first()
+        if not notif:
+            raise HTTPException(status_code=404, detail="Notification not found.")
+        notif.read = True
+        db.commit()
+    return {"status": "ok"}
+
+
+@app.post("/notifications/read-all", tags=["Notifications"])
+async def mark_all_notifications_read(
+    current_user: User = Depends(get_current_user),
+):
+    with SessionLocal() as db:
+        result = db.query(Notification).filter(
+            Notification.user_id == current_user.id,
+            Notification.read == False,
+        ).all()
+        count = len(result)
+        for n in result:
+            n.read = True
+        db.commit()
+    return {"marked": count}
+
+
+# ─────────────────────────────────────────────
+# INVITATIONS — Accept external invite
+# ─────────────────────────────────────────────
+
+class AcceptInviteRequest(BaseModel):
+    email: Optional[str] = None
+    password: Optional[str] = None
+    full_name: Optional[str] = None
+    existing: bool = False
+
+
+@app.post("/invitations/{token}/accept", tags=["Invitations"])
+async def accept_process_invitation(
+    token: str,
+    body: AcceptInviteRequest,
+    current_user: Optional[User] = Depends(get_optional_user),
+):
+    """
+    Accept a process collaboration invitation.
+    If body.existing=True and current_user is authenticated, re-uses their account.
+    Otherwise creates a new user account with business_role=colaborador.
+    """
+    from auth.password import hash_password as _hash
+    from auth.jwt import create_access_token, create_refresh_token
+    import hashlib
+
+    with SessionLocal() as db:
+        invitation = db.query(Invitation).filter(
+            Invitation.token == token,
+            Invitation.status == "pending",
+        ).first()
+        if not invitation:
+            raise HTTPException(status_code=404, detail="Invitation not found or already used.")
+        if invitation.expires_at < datetime.now(timezone.utc):
+            invitation.status = "expired"
+            db.commit()
+            raise HTTPException(status_code=410, detail="Invitation has expired.")
+
+        # Resolve which user accepts
+        if body.existing and current_user:
+            user = current_user
+        else:
+            if not body.email or not body.password or not body.full_name:
+                raise HTTPException(
+                    status_code=422,
+                    detail="email, password, and full_name are required for new users.",
+                )
+            if db.query(User).filter(User.email == body.email).first():
+                raise HTTPException(status_code=409, detail="Email already registered.")
+
+            # Find the analysis to get tenant
+            analysis = db.query(db_models.Analysis).filter(
+                db_models.Analysis.id == invitation.analysis_id,
+            ).first()
+            if not analysis or not analysis.tenant_id:
+                raise HTTPException(status_code=400, detail="Analysis tenant not found.")
+
+            user = User(
+                email=body.email,
+                hashed_password=_hash(body.password),
+                full_name=body.full_name,
+                role="member",
+                business_role="colaborador",
+                tenant_id=analysis.tenant_id,
+            )
+            db.add(user)
+            db.flush()
+
+        # Create collaborator record (active — they accepted)
+        existing_collab = db.query(ProcessCollaborator).filter(
+            ProcessCollaborator.analysis_id == invitation.analysis_id,
+            ProcessCollaborator.user_id == user.id,
+        ).first()
+        if not existing_collab:
+            collab = ProcessCollaborator(
+                analysis_id=invitation.analysis_id,
+                user_id=user.id,
+                invited_by=invitation.invited_by,
+                status="active",
+            )
+            db.add(collab)
+        else:
+            existing_collab.status = "active"
+
+        invitation.status = "accepted"
+        db.commit()
+        db.refresh(user)
+
+        # Issue tokens
+        access = create_access_token(user.id, user.tenant_id, user.role)
+        refresh, expires_at = create_refresh_token(user.id)
+        token_hash = hashlib.sha256(refresh.encode()).hexdigest()
+        db.add(db_models.RefreshToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        ))
+        db.commit()
+
+        logger.info(f"Invite accepted: token={token} user={user.email} analysis={invitation.analysis_id}")
+        from models.schemas import TokenResponse
+        return TokenResponse(
+            access_token=access,
+            refresh_token=refresh,
+            business_role=user.business_role or "colaborador",
+        )
 
 
 # ─────────────────────────────────────────────

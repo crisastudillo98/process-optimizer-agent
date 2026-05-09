@@ -362,6 +362,12 @@
       if (user.business_role === 'colaborador') {
         _applyColaboradorView();
       }
+
+      // ── Consultor: show TEAM section as soon as role is known ──
+      if (user.business_role === 'consultor') {
+        document.getElementById('team-section').style.display = 'block';
+        loadCollaborators();
+      }
     } catch(e) { console.error(e); }
 
     refreshNotifications();

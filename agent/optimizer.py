@@ -192,18 +192,24 @@ def node_optimize_tobe(state: AgentState) -> dict:
     process  = state.asis_process
     analysis = state.waste_analysis
 
-    if process is None or analysis is None:
+    if process is None:
         return {
             "optimization_ok": False,
-            "errors": state.errors + [
-                "optimize_tobe: asis_process o waste_analysis son None."
-            ],
+            "errors": state.errors + ["optimize_tobe: asis_process es None."],
             "current_node": "optimize_tobe",
         }
 
     # Serializar inputs para el LLM
-    asis_json  = json.dumps(process.model_dump(mode="json"),   ensure_ascii=False, indent=2)
-    waste_json = json.dumps(analysis.model_dump(mode="json"),  ensure_ascii=False, indent=2)
+    asis_json = json.dumps(process.model_dump(mode="json"), ensure_ascii=False, indent=2)
+    # Fall back to a minimal waste context if analysis failed — LLM still runs
+    if analysis is not None:
+        waste_json = json.dumps(analysis.model_dump(mode="json"), ensure_ascii=False, indent=2)
+    else:
+        logger.warning("optimize_tobe: waste_analysis es None — usando AS-IS directo como fallback")
+        waste_json = json.dumps(
+            {"activity_details": [], "lean_summary": "Análisis de desperdicios no disponible."},
+            ensure_ascii=False,
+        )
     rag_context = "\n\n".join(state.rag_context) if state.rag_context else "Sin contexto RAG."
     rag_context = rag_context[:500]
     hitl_feedback = state.hitl_feedback or "Sin feedback del revisor."

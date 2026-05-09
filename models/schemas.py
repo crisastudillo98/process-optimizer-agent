@@ -190,7 +190,7 @@ class ActivityWasteDetail(BaseModel):
     activity_name: str
     waste_classification: WasteClassification
     waste_type: Optional[WasteType]       = None
-    waste_justification: str              = Field(..., description="Explicación detallada")
+    waste_justification: Optional[str]    = Field(None, description="Explicación detallada")
     estimated_waste_time_min: float       = Field(
         default=0.0,
         description="Minutos de desperdicio estimados en esta actividad"

@@ -445,7 +445,12 @@
         bpmnAsisXml = await asisBlob.text();
       } catch(_) { /* AS-IS BPMN optional */ }
     } catch (e) {
-      document.getElementById('bpmn-loading').textContent = 'BPMN not yet available.';
+      const loadingEl = document.getElementById('bpmn-loading');
+      if (e.message && e.message.includes('404')) {
+        loadingEl.innerHTML = 'Diagram not available for this session. <button onclick="loadBpmn()" style="background:none;border:none;cursor:pointer;color:var(--primary);font-size:1.1rem;vertical-align:middle;" title="Retry">↺</button>';
+      } else {
+        loadingEl.textContent = 'BPMN not yet available.';
+      }
     }
   }
 

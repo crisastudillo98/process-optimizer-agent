@@ -77,6 +77,45 @@ Instrucciones adicionales:
 MAX_HISTORY_MESSAGES = 20  # Máximo de mensajes por sesión (para no exceder token limits)
 
 
+def _truncate_context(ctx: dict) -> str:
+    """Build a concise context string from analysis dict, max ~1500 chars total."""
+    parts = []
+
+    asis = ctx.get("asis_process") or {}
+    asis_name = asis.get("name", "N/A")
+    asis_acts = ", ".join(
+        (a.get("name") or str(a)) for a in (asis.get("activities") or [])
+    )
+    parts.append(f"AS-IS Process: {asis_name}. Activities: {asis_acts}"[:500])
+
+    tobe = ctx.get("tobe_process") or {}
+    tobe_name = tobe.get("name", "N/A")
+    tobe_acts = ", ".join(
+        (a.get("name") or str(a)) for a in (tobe.get("activities") or [])
+    )
+    parts.append(f"TO-BE Process: {tobe_name}. Activities: {tobe_acts}"[:500])
+
+    kpi = ctx.get("kpi_report") or {}
+    summary = kpi.get("executive_summary", "")
+    if not summary:
+        ct = kpi.get("cycle_time") or {}
+        summary = (
+            f"Cycle time -{ct.get('reduction_pct', '?')}%"
+            f", ROI {kpi.get('estimated_roi_pct', '?')}%"
+        )
+    parts.append(f"KPIs: {summary}"[:200])
+
+    waste = ctx.get("waste_analysis") or {}
+    top = ", ".join(
+        (w.get("waste_type") or "") for w in (waste.get("activity_details") or [])[:3]
+    )
+    parts.append(
+        f"Waste: {waste.get('waste_percentage', '?')}%. Top wastes: {top}"[:200]
+    )
+
+    return "\n\n".join(parts)
+
+
 # ─────────────────────────────────────────────
 # ENDPOINT
 # ─────────────────────────────────────────────
@@ -101,9 +140,8 @@ async def chat(request: ChatRequest, current_user: User = Depends(get_current_us
 
     history = _chat_histories[sid]
 
-    # Construir system prompt con contexto del análisis
-    import json
-    contexto_str = json.dumps(request.contexto_analisis, indent=2, ensure_ascii=False)
+    # Construir system prompt con contexto del análisis (truncado para evitar 413)
+    contexto_str = _truncate_context(request.contexto_analisis)
     system_message = SYSTEM_PROMPT_TEMPLATE.format(contexto=contexto_str)
 
     # Construir lista de mensajes para el LLM

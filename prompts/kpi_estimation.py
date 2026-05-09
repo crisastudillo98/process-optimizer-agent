@@ -58,32 +58,32 @@ Ejemplo del formato esperado (con valores ficticios para ilustrar):
     "cycle_time": {{
       "business_interpretation": "Reducir el ciclo de 240 a 132 minutos permite procesar el doble de solicitudes diarias sin ampliar el equipo.",
       "industry_benchmark": "Procesos Lean maduros alcanzan reducciones del 40-60% en el primer año.",
-      "implementation_risks": "Resistencia al cambio en el equipo; riesgo de retrasos en la automatización de aprobaciones.",
-      "recommended_next_step": "Pilotar el nuevo flujo con el 20% de los casos durante 2 semanas antes del despliegue total."
+      "implementation_risk": "Resistencia al cambio en el equipo; riesgo de retrasos en la automatización de aprobaciones.",
+      "next_step": "Pilotar el nuevo flujo con el 20% de los casos durante 2 semanas antes del despliegue total."
     }},
     "headcount": {{
-      "business_interpretation": "...",
-      "industry_benchmark": "...",
-      "implementation_risks": "...",
-      "recommended_next_step": "..."
+      "business_interpretation": "Reducir 4 actividades manuales libera al equipo para tareas de mayor valor agregado.",
+      "industry_benchmark": "Organizaciones Lean reducen actividades manuales entre 30-50% en la primera iteración.",
+      "implementation_risk": "Requiere capacitación del equipo en nuevas herramientas; posible resistencia sindical.",
+      "next_step": "Identificar roles a reasignar y diseñar plan de capacitación antes del despliegue."
     }},
     "waste_reduction": {{
-      "business_interpretation": "...",
-      "industry_benchmark": "...",
-      "implementation_risks": "...",
-      "recommended_next_step": "..."
+      "business_interpretation": "Eliminar el tiempo de espera y reproceso reduce el costo operativo directo del proceso.",
+      "industry_benchmark": "Six Sigma Black Belt proyectos logran reducción de Muda del 50-70% en 6 meses.",
+      "implementation_risk": "Low — las mejoras son principalmente de flujo y no requieren inversión en infraestructura.",
+      "next_step": "Mapear el Value Stream actual y priorizar los 3 desperdicios con mayor impacto en tiempo."
     }},
     "automation_coverage": {{
-      "business_interpretation": "...",
-      "industry_benchmark": "...",
-      "implementation_risks": "...",
-      "recommended_next_step": "..."
+      "business_interpretation": "Aumentar la automatización reduce errores humanos y acelera el throughput del proceso.",
+      "industry_benchmark": "Empresas digitalmente maduras alcanzan 60-80% de automatización en procesos administrativos.",
+      "implementation_risk": "Requiere integración de sistemas legados; evaluar costo de APIs o RPA antes de comprometerse.",
+      "next_step": "Pilot with invoice processing team in Q1 using RPA standard tools available."
     }},
     "process_efficiency": {{
-      "business_interpretation": "...",
-      "industry_benchmark": "...",
-      "implementation_risks": "...",
-      "recommended_next_step": "..."
+      "business_interpretation": "Un VAR superior al 50% indica que la mayoría del tiempo agrega valor real al cliente.",
+      "industry_benchmark": "Procesos Lean certificados mantienen VAR > 60%; manufactura de clase mundial supera 80%.",
+      "implementation_risk": "Low — standard process redesign techniques apply; no specialized tooling required.",
+      "next_step": "Revisar cada actividad residual y confirmar que agrega valor antes del siguiente ciclo de mejora."
     }}
   }}
 }}

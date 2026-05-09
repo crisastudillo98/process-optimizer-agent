@@ -483,6 +483,10 @@ async def download_bpmn(
         if file_path.exists():
             return FileResponse(path=str(file_path), media_type="application/xml", filename=file_path.name)
 
+    # Completed sessions with no BPMN path are old sessions — return 404, not 425
+    if record and record.status == "completed":
+        raise HTTPException(status_code=404, detail="BPMN not available for this session")
+
     raise HTTPException(status_code=425, detail="El diagrama BPMN aún no está disponible.")
 
 

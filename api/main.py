@@ -76,6 +76,7 @@ app.mount("/docs", StaticFiles(directory="docs"), name="docs")
 # ─────────────────────────────────────────────
 
 _sessions: dict[str, AgentState] = {}
+_recovered_sessions: set[str] = set()
 
 # Source upload metadata (in-memory; replace with DB in production)
 _session_sources: dict[str, list[dict]] = {}
@@ -101,6 +102,7 @@ def _get_session(session_id: str, user_id: Optional[str] = None) -> AgentState:
                 tenant_id=record.tenant_id,
             )
         _sessions[session_id] = state
+        _recovered_sessions.add(session_id)
         logger.info(f"Sesión {session_id} recuperada de SQLite")
         return state
 
@@ -167,6 +169,8 @@ class AnalysisStatusResponse(BaseModel):
     bpmn_ok:             bool
     kpi_ok:              bool
     errors:              list[str]
+    recovered_from_db:   bool = False
+    process_name:        Optional[str] = None
 
 
 # ─────────────────────────────────────────────
@@ -377,6 +381,15 @@ async def get_session_status(
 ):
     state = _get_session(session_id, user_id=current_user.id)
     _assert_session_owner(state, current_user)
+
+    recovered = session_id in _recovered_sessions
+    process_name: Optional[str] = None
+    if recovered:
+        with SessionLocal() as db:
+            record = repo.get_analysis(db, session_id, user_id=current_user.id)
+        if record:
+            process_name = record.process_name
+
     return AnalysisStatusResponse(
         session_id=session_id,
         current_node=state.current_node,
@@ -390,6 +403,8 @@ async def get_session_status(
         bpmn_ok=state.bpmn_ok,
         kpi_ok=state.kpi_ok,
         errors=state.errors,
+        recovered_from_db=recovered,
+        process_name=process_name,
     )
 
 
@@ -476,13 +491,29 @@ async def get_full_report(
     session_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    state = _get_session(session_id)
+    state = _get_session(session_id, user_id=current_user.id)
     _assert_session_owner(state, current_user)
     if not state.kpi_ok:
         raise HTTPException(
             status_code=425,
             detail="El análisis completo aún no está disponible.",
         )
+
+    # State fields may be absent when recovered with the minimal fallback — read directly from SQLite
+    if state.asis_process is None:
+        with SessionLocal() as db:
+            record = repo.get_analysis(db, session_id, user_id=current_user.id)
+        if record and record.result_json:
+            result = json.loads(record.result_json)
+            return {
+                "session_id":     session_id,
+                "asis_process":   result.get("asis_process"),
+                "waste_analysis": result.get("waste_analysis"),
+                "tobe_process":   result.get("tobe_process"),
+                "kpi_report":     result.get("kpi_report"),
+                "bpmn_file":      None,
+            }
+
     return {
         "session_id":     session_id,
         "asis_process":   state.asis_process.model_dump() if state.asis_process else None,

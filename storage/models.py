@@ -88,7 +88,7 @@ class RefreshToken(Base):
     id         = Column(String, primary_key=True, default=lambda: str(uuid4()))
     user_id    = Column(String, ForeignKey("users.id"), nullable=False)
     token_hash = Column(String, nullable=False)
-    expires_at = Column(DateTime, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
     revoked    = Column(Boolean, default=False)
 
     def __repr__(self):
@@ -122,7 +122,7 @@ class Invitation(Base):
     role        = Column(String(50), default="colaborador")
     token       = Column(String, unique=True, nullable=False)
     status      = Column(String(50), default="pending")   # pending|accepted|expired
-    expires_at  = Column(DateTime, nullable=False)
+    expires_at  = Column(DateTime(timezone=True), nullable=False)
     created_at  = Column(DateTime, server_default=func.now())
 
     def __repr__(self):

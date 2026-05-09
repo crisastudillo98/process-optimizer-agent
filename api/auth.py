@@ -118,7 +118,7 @@ def refresh_tokens(body: RefreshRequest, db: Session = Depends(get_db)):
     if not stored:
         raise HTTPException(status_code=401, detail="Token revoked or not found")
 
-    if stored.expires_at < datetime.utcnow():
+    if stored.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Refresh token expired")
 
     user = db.query(User).filter(User.id == payload["sub"], User.is_active == True).first()
@@ -180,7 +180,7 @@ def invite(
     from datetime import timedelta
     from jose import jwt as jose_jwt
 
-    expire = datetime.utcnow() + timedelta(days=7)
+    expire = datetime.now(timezone.utc) + timedelta(days=7)
     invite_payload = {
         "email": body.email,
         "tenant_id": current_user.tenant_id,

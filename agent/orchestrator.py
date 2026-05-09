@@ -74,10 +74,14 @@ def route_after_optimization(state: AgentState) -> str:
 def route_after_asis_hitl(state: AgentState) -> str:
     if state.hitl_asis_approved:
         return "retrieve_rag"
-    # If rejected with feedback, re-extract AS-IS with correction hint
+    # Rejected with feedback — re-extract AS-IS with correction hint
     if state.hitl_asis_feedback:
         return "extract_asis"
-    # No feedback provided — approve anyway to avoid infinite loop
+    # hitl_asis_required=True and not yet approved: pause this graph run.
+    # _resume_pipeline will re-invoke the graph once the analyst approves.
+    if state.hitl_asis_required:
+        return "end"
+    # HITL disabled — node already auto-approved, shouldn't reach here
     return "retrieve_rag"
 
 
@@ -125,7 +129,7 @@ def build_graph() -> StateGraph:
     graph.add_conditional_edges(
         "hitl_review_asis",
         route_after_asis_hitl,
-        {"retrieve_rag": "retrieve_rag", "extract_asis": "extract_asis"}
+        {"retrieve_rag": "retrieve_rag", "extract_asis": "extract_asis", "end": END}
     )
 
     graph.add_edge("retrieve_rag",  "optimize_tobe")

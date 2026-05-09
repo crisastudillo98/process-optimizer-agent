@@ -338,6 +338,12 @@ async def _run_pipeline(session_id: str, process_name: str = "Sin nombre") -> No
         if result and isinstance(result, dict):
             _sessions[session_id] = AgentState(**result)
             final_state = _sessions[session_id]
+
+            # Pipeline paused at AS-IS HITL — do not mark as complete
+            if final_state.hitl_asis_required and not final_state.hitl_asis_approved:
+                logger.info(f"Pipeline pausado en AS-IS HITL checkpoint: {session_id}")
+                return
+
             full_report = {
                 "asis_process":   final_state.asis_process.model_dump() if final_state.asis_process else None,
                 "waste_analysis": final_state.waste_analysis.model_dump() if final_state.waste_analysis else None,

@@ -632,14 +632,15 @@ async def _resume_pipeline(session_id: str) -> None:
                     logger.info(f"TO-BE HITL activo — pipeline suspendido: {session_id}")
                     return
         else:
-            # TO-BE HITL resume: graph can re-run because hitl_asis_approved=True
-            # guards the asis hitl node; route_after_asis_hitl sends to retrieve_rag
-            result = optimizer_graph.invoke(
-                state.model_dump(),
-                config={"configurable": {"thread_id": session_id}},
-            )
-            if result and isinstance(result, dict):
-                current = result
+            # TO-BE HITL resume: optimization is already done; only BPMN + KPIs remain.
+            # Re-invoking the full graph would wastefully re-run extract_asis,
+            # analyze_waste and optimize_tobe (no "already done" guards in those nodes),
+            # producing a different asis_process/waste_analysis than what the user approved.
+            logger.info(f"Reanudando pipeline post-TO-BE HITL: {session_id}")
+            current = state.model_dump()
+            for node_fn in [node_generate_bpmn, node_calculate_kpis]:
+                update = node_fn(AgentState(**current))
+                current.update(update)
                 _sessions[session_id] = AgentState(**current)
 
         final_state = _sessions[session_id]

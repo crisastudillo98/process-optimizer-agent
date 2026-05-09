@@ -51,6 +51,11 @@ def _build_waste_analysis(
     # Construir detalles por actividad
     activity_details: list[ActivityWasteDetail] = []
     for item in data.get("activity_details", []):
+        # Normalize common LLM field-name variations (id/name vs activity_id/activity_name)
+        if "activity_id" not in item and "id" in item:
+            item["activity_id"] = item.pop("id")
+        if "activity_name" not in item and "name" in item:
+            item["activity_name"] = item.pop("name")
         detail = ActivityWasteDetail(**item)
         activity_details.append(detail)
 

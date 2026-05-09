@@ -41,7 +41,11 @@ def _issue_tokens(user: User, db: Session) -> TokenResponse:
     ))
     db.commit()
 
-    return TokenResponse(access_token=access, refresh_token=refresh)
+    return TokenResponse(
+        access_token=access,
+        refresh_token=refresh,
+        business_role=user.business_role or "consultor",
+    )
 
 
 # ─── Register ────────────────────────────────────────────────────────────────
@@ -63,6 +67,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         hashed_password=hash_password(body.password),
         full_name=body.full_name,
         role="owner",
+        business_role=body.business_role if body.business_role in ("consultor", "colaborador") else "consultor",
         tenant_id=tenant.id,
     )
     db.add(user)
@@ -153,6 +158,7 @@ def me(
         email=current_user.email,
         full_name=current_user.full_name,
         role=current_user.role,
+        business_role=current_user.business_role or "consultor",
         tenant_id=current_user.tenant_id,
         tenant_name=tenant.name if tenant else "",
         tenant_slug=tenant.slug if tenant else "",

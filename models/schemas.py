@@ -454,6 +454,7 @@ class RegisterRequest(BaseModel):
     full_name: str = Field(min_length=2)
     org_name: str = Field(min_length=2)
     org_slug: str = Field(min_length=2, pattern=r'^[a-z0-9-]+$')
+    business_role: str = "consultor"   # consultor|colaborador
 
 
 class LoginRequest(BaseModel):
@@ -465,6 +466,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    business_role: str = "consultor"
 
 
 class RefreshRequest(BaseModel):
@@ -476,6 +478,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: str
     role: str
+    business_role: str = "consultor"
     tenant_id: str
     tenant_name: str
     tenant_slug: str

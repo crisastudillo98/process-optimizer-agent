@@ -164,4 +164,26 @@ export const chat = {
     apiRequest('GET', `/chat/${id}/history`)
 };
 
+// Notifications
+export const notifications = {
+  list: (unread_only = false) =>
+    apiRequest('GET', `/notifications?unread_only=${unread_only}`),
+  markRead: (id) =>
+    apiRequest('POST', `/notifications/${id}/read`),
+  markAllRead: () =>
+    apiRequest('POST', '/notifications/read-all')
+};
+
+// Collaboration
+export const collaboration = {
+  invite: (analysisId, email, message = '') =>
+    apiRequest('POST', `/analyses/${analysisId}/invite`, { email, message }),
+  listCollaborators: (analysisId) =>
+    apiRequest('GET', `/analyses/${analysisId}/collaborators`),
+  complete: (analysisId, userId) =>
+    apiRequest('POST', `/analyses/${analysisId}/collaborators/${userId}/complete`),
+  acceptInvite: (token, data) =>
+    apiRequest('POST', `/invitations/${token}/accept`, data)
+};
+
 export { getToken };

@@ -39,6 +39,25 @@
       <a href="metrics.html" class="btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.8rem;display:none;" id="metrics-link">
         📊 Full Metrics
       </a>
+      <!-- Notification Bell -->
+      <div style="position:relative;" id="notif-bell-wrapper">
+        <button id="notif-bell" onclick="toggleNotifDropdown()" title="Notifications"
+          style="position:relative;background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:6px;line-height:0;"
+          onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span id="notif-badge" style="display:none;position:absolute;top:0;right:0;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:50%;width:14px;height:14px;line-height:14px;text-align:center;"></span>
+        </button>
+        <div id="notif-dropdown" style="display:none;position:absolute;right:0;top:calc(100% + 6px);width:300px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:1000;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);">
+            <span style="font-size:0.8rem;font-weight:600;color:var(--text);">Notifications</span>
+            <button onclick="markAllRead()" style="font-size:0.72rem;color:var(--muted);background:none;border:none;cursor:pointer;">Mark all read</button>
+          </div>
+          <div id="notif-list" style="max-height:300px;overflow-y:auto;"></div>
+        </div>
+      </div>
       <div style="font-size:0.78rem;color:var(--muted);" id="ws-user-name"></div>
     </div>
   </div>
@@ -123,6 +142,18 @@
                  style="font-size:0.78rem;padding:0.35rem 0.6rem;flex:1;min-width:0;">
           <button onclick="addMeetingLink()" style="font-size:0.72rem;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap;">Add</button>
         </div>
+      </div>
+
+      <!-- TEAM section — only visible to process owner -->
+      <div id="team-section" style="display:none;margin-top:1.25rem;">
+        <div class="panel-section-title">TEAM</div>
+        <div id="collaborators-list" style="margin-top:0.5rem;"></div>
+        <button onclick="showInviteModal()"
+          style="margin-top:0.5rem;width:100%;font-size:0.75rem;padding:0.4rem;border:1px dashed var(--border);border-radius:6px;background:none;color:var(--muted);cursor:pointer;"
+          onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+          + Invite Collaborator
+        </button>
       </div>
     </div>
 
@@ -221,7 +252,7 @@
 </div>
 
 <script type="module">
-  import { requireAuth, auth, sessions, chat, sources, refinement, apiBlob } from './js/api.js';
+  import { requireAuth, auth, sessions, chat, sources, refinement, apiBlob, notifications, collaboration } from './js/api.js';
   import { setUser, setReport, state } from './js/state.js';
 
   if (!requireAuth()) throw new Error('Not authenticated');
@@ -236,14 +267,104 @@
   let __hitlMode = null; // 'asis' or 'tobe'
   let asisBannerDismissed = false;
 
+  // ── Notification Bell ──────────────────────────────────
+  function _timeAgo(isoStr) {
+    if (!isoStr) return '';
+    const diff = (Date.now() - new Date(isoStr).getTime()) / 1000;
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  }
+
+  function _notifIcon(type) {
+    if (type === 'process_invitation') return '🔔';
+    if (type === 'collaborator_completed') return '✅';
+    return '⚡';
+  }
+
+  function _notifHref(data) {
+    try {
+      const d = JSON.parse(data || '{}');
+      if (d.analysis_id) return `workspace.html?session=${d.analysis_id}`;
+    } catch (_) {}
+    return '#';
+  }
+
+  async function refreshNotifications() {
+    try {
+      const data = await notifications.list();
+      if (!data) return;
+      const badge = document.getElementById('notif-badge');
+      const list  = document.getElementById('notif-list');
+      if (data.unread_count > 0) {
+        badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
+        badge.style.display = 'block';
+      } else {
+        badge.style.display = 'none';
+      }
+      const top5 = data.notifications.slice(0, 5);
+      if (top5.length === 0) {
+        list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:0.8rem;">No notifications</div>';
+        return;
+      }
+      list.innerHTML = top5.map(n => `
+        <a href="${_notifHref(n.data)}" onclick="markOneRead('${n.id}')"
+          style="display:block;padding:10px 14px;border-bottom:1px solid var(--border);text-decoration:none;${n.read ? 'opacity:0.55;' : ''}">
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <span style="font-size:1rem;">${_notifIcon(n.type)}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.78rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.title}</div>
+              <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">${n.message}</div>
+              <div style="font-size:0.68rem;color:var(--muted);margin-top:3px;">${_timeAgo(n.created_at)}</div>
+            </div>
+            ${!n.read ? '<span style="width:6px;height:6px;border-radius:50%;background:#3b82f6;flex-shrink:0;margin-top:4px;"></span>' : ''}
+          </div>
+        </a>
+      `).join('');
+    } catch (_) {}
+  }
+
+  window.toggleNotifDropdown = function() {
+    const dd = document.getElementById('notif-dropdown');
+    const open = dd.style.display !== 'none';
+    dd.style.display = open ? 'none' : 'block';
+    if (!open) refreshNotifications();
+  };
+
+  window.markOneRead = async function(id) {
+    try { await notifications.markRead(id); } catch (_) {}
+  };
+
+  window.markAllRead = async function() {
+    try { await notifications.markAllRead(); refreshNotifications(); } catch (_) {}
+  };
+
+  document.addEventListener('click', (e) => {
+    const wrapper = document.getElementById('notif-bell-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+      document.getElementById('notif-dropdown').style.display = 'none';
+    }
+  });
+
+  setInterval(refreshNotifications, 30000);
+
   // ── Init ──────────────────────────────────────────────
   async function init() {
     try {
       const user = await auth.me();
       if (!user) return;
       setUser(user);
+      __currentUser = user;
       document.getElementById('ws-user-name').textContent = user.full_name;
+
+      // ── Collaborador view ──────────────────────────────────────
+      if (user.business_role === 'colaborador') {
+        _applyColaboradorView();
+      }
     } catch(e) { console.error(e); }
+
+    refreshNotifications();
 
     document.getElementById('left-process-id').textContent = 'ID: ' + sessionId.slice(0, 8) + '…';
 
@@ -336,6 +457,17 @@
       document.getElementById('ws-status-label').textContent = 'Analysis complete';
       document.getElementById('download-bpmn-btn').style.display = 'inline-flex';
       document.getElementById('metrics-link').style.display = 'inline-flex';
+
+      if (__currentUser && __currentUser.business_role !== 'colaborador') {
+        document.getElementById('team-section').style.display = 'block';
+        loadCollaborators();
+      }
+
+      if (__currentUser?.business_role === 'colaborador') {
+        const title = document.getElementById('collab-header-title');
+        if (title) title.textContent = `Tu contribución a: ${processName}`;
+        document.getElementById('ws-process-name').textContent = `Tu contribución a: ${processName}`;
+      }
     } catch (err) {
       console.error('Error loading session:', err);
       document.getElementById('ws-status-label').textContent = 'Error loading analysis: ' + err.message;
@@ -412,6 +544,15 @@
 
       document.getElementById('download-bpmn-btn').style.display = 'inline-flex';
       document.getElementById('metrics-link').style.display = 'inline-flex';
+
+      // Show TEAM section if user is the process owner
+      if (__currentUser && report.session_id === sessionId) {
+        // Only owners see the team panel (colaboradores have is_owner=false in /analyses)
+        if (__currentUser.business_role !== 'colaborador') {
+          document.getElementById('team-section').style.display = 'block';
+          loadCollaborators();
+        }
+      }
     } catch (e) {
       console.error('Report error:', e);
       document.getElementById('ws-status-label').textContent = 'Report unavailable: ' + e.message;
@@ -772,6 +913,148 @@
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  // ── Collaborador View ─────────────────────────────────
+  function _applyColaboradorView() {
+    // Hide HITL banners
+    document.getElementById('hitl-banner').style.display = 'none';
+
+    // Hide download BPMN and full metrics buttons
+    document.getElementById('download-bpmn-btn').style.display = 'none';
+    const metricsLink = document.getElementById('metrics-link');
+    if (metricsLink) metricsLink.style.display = 'none';
+
+    // Override chat header for collaborador
+    const chatHeader = document.querySelector('.center-panel-header > div:last-child');
+    if (chatHeader) {
+      chatHeader.innerHTML = `
+        <div style="font-weight:600;font-size:0.88rem;" id="collab-header-title">Tu contribución al proceso</div>
+        <div style="font-size:0.72rem;color:var(--muted);">Describe las actividades que realizas en este proceso</div>
+      `;
+    }
+
+    // Add "Validate and Submit" button below chat input area
+    const chatInput = document.getElementById('chat-input')?.parentElement;
+    if (chatInput) {
+      const submitBtn = document.createElement('button');
+      submitBtn.id = 'collab-submit-btn';
+      submitBtn.innerHTML = '✅ Validate and Submit Contribution';
+      submitBtn.style.cssText = 'margin-top:0.6rem;width:100%;padding:0.65rem;background:#22c55e;color:#000;border:none;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;';
+      submitBtn.onclick = submitCollaboration;
+      chatInput.parentElement.appendChild(submitBtn);
+    }
+
+    // Send the initial guided message once the session is identified
+    setTimeout(_sendCollaboradorGreeting, 1500);
+  }
+
+  async function _sendCollaboradorGreeting() {
+    const processName = document.getElementById('ws-process-name')?.textContent || 'este proceso';
+    if (document.getElementById('chat-empty')?.style.display === 'none') return; // already has messages
+    const greeting = `Hola! Soy tu asistente de procesos. Cuéntame cuáles son las actividades, tareas y tiempos que realizas en el proceso ${processName}. Puedes describirlo con tus propias palabras.`;
+    appendAgentMessage(greeting);
+    document.getElementById('chat-empty').style.display = 'none';
+    document.getElementById('suggestion-chips').style.display = 'none';
+  }
+
+  function appendAgentMessage(text) {
+    const msgs = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'chat-bubble agent';
+    div.textContent = text;
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  window.submitCollaboration = async function() {
+    const btn = document.getElementById('collab-submit-btn');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      await collaboration.complete(sessionId, __currentUser.id);
+      btn.style.background = '#6b7280';
+      btn.textContent = '✓ Tu aporte fue enviado al consultor';
+
+      // Disable chat after submission
+      const chatInput = document.getElementById('chat-input');
+      const chatSendBtn = document.getElementById('chat-send-btn');
+      if (chatInput) { chatInput.disabled = true; chatInput.placeholder = 'Contribution submitted.'; }
+      if (chatSendBtn) chatSendBtn.disabled = true;
+    } catch(e) {
+      btn.disabled = false;
+      btn.textContent = '✅ Validate and Submit Contribution';
+      alert('Error: ' + e.message);
+    }
+  };
+
+  // ── Team / Collaboration ──────────────────────────────
+  let __currentUser = null;
+
+  window.showInviteModal = function() {
+    document.getElementById('invite-email').value = '';
+    document.getElementById('invite-message').value = '';
+    document.getElementById('invite-result').style.display = 'none';
+    document.getElementById('invite-send-btn').disabled = false;
+    document.getElementById('invite-modal').style.display = 'flex';
+  };
+
+  window.closeInviteModal = function() {
+    document.getElementById('invite-modal').style.display = 'none';
+  };
+
+  window.sendInvitation = async function() {
+    const email = document.getElementById('invite-email').value.trim();
+    const message = document.getElementById('invite-message').value.trim();
+    if (!email) return;
+    const btn = document.getElementById('invite-send-btn');
+    const result = document.getElementById('invite-result');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const res = await collaboration.invite(sessionId, email, message);
+      result.style.display = 'block';
+      if (res.user_found) {
+        result.style.color = '#22c55e';
+        result.textContent = `✓ Invitation sent to ${email}`;
+      } else {
+        result.style.color = 'var(--text)';
+        result.innerHTML = `✓ Invite link created. Share this link:<br>
+          <code style="font-size:0.72rem;word-break:break-all;color:var(--muted);">${window.location.origin}${res.invite_url}</code>
+          <button onclick="navigator.clipboard.writeText('${window.location.origin}${res.invite_url}')"
+            style="margin-top:4px;font-size:0.72rem;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:none;color:var(--muted);cursor:pointer;">Copy link</button>`;
+      }
+      loadCollaborators();
+    } catch(e) {
+      result.style.display = 'block';
+      result.style.color = '#ef4444';
+      result.textContent = `Error: ${e.message}`;
+      btn.disabled = false;
+      btn.textContent = 'Send Invitation';
+    }
+  };
+
+  async function loadCollaborators() {
+    try {
+      const data = await collaboration.listCollaborators(sessionId);
+      if (!data) return;
+      const list = document.getElementById('collaborators-list');
+      if (!data.collaborators || data.collaborators.length === 0) {
+        list.innerHTML = '<div style="font-size:0.75rem;color:var(--muted);">No collaborators yet.</div>';
+        return;
+      }
+      const statusColor = { pending: '#f59e0b', active: '#3b82f6', completed: '#22c55e' };
+      list.innerHTML = data.collaborators.map(c => `
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:0.75rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.full_name}</div>
+            <div style="font-size:0.68rem;color:var(--muted);">${c.email}</div>
+          </div>
+          <span style="font-size:0.65rem;padding:2px 6px;border-radius:10px;background:${statusColor[c.status] || '#6b7280'}22;color:${statusColor[c.status] || '#6b7280'};font-weight:600;">${c.status}</span>
+        </div>
+      `).join('');
+    } catch(_) {}
+  }
+
   // ── Raw Input Modal ───────────────────────────────────
   window.showRawInput = function() {
     if (!window.__lastReport) return;
@@ -947,6 +1230,35 @@
 
   init();
 </script>
+
+<!-- Invite Collaborator Modal -->
+<div id="invite-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);">
+      <div style="font-weight:600;font-size:0.92rem;">Invite Collaborator</div>
+      <button onclick="closeInviteModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;line-height:1;">✕</button>
+    </div>
+    <div style="padding:1.25rem 1.4rem;">
+      <label style="font-size:0.8rem;color:var(--muted);display:block;margin-bottom:0.3rem;">Email address</label>
+      <input id="invite-email" type="email" placeholder="colleague@company.com"
+        style="width:100%;font-size:0.85rem;padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);box-sizing:border-box;">
+      <label style="font-size:0.8rem;color:var(--muted);display:block;margin-top:1rem;margin-bottom:0.3rem;">Message (optional)</label>
+      <textarea id="invite-message" placeholder="Hi! I'd like you to collaborate on this process..." rows="3"
+        style="width:100%;font-size:0.82rem;padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+      <div id="invite-result" style="margin-top:0.75rem;font-size:0.8rem;display:none;"></div>
+      <div style="display:flex;gap:0.6rem;margin-top:1.1rem;">
+        <button onclick="sendInvitation()" id="invite-send-btn"
+          style="flex:1;padding:0.55rem;background:var(--primary);color:#000;border:none;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+          Send Invitation
+        </button>
+        <button onclick="closeInviteModal()"
+          style="padding:0.55rem 1rem;background:none;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;color:var(--muted);cursor:pointer;">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Raw Input Modal -->
 <div id="raw-input-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">

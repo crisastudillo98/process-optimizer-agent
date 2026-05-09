@@ -19,6 +19,10 @@ class Analysis(Base):
     cycle_time_reduction_pct = Column(Float, nullable=True)
     automation_coverage_pct  = Column(Float, nullable=True)
 
+    # BPMN file paths — persisted so they survive server restarts
+    bpmn_tobe_path  = Column(String, nullable=True)
+    bpmn_asis_path  = Column(String, nullable=True)
+
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     completed_at    = Column(DateTime(timezone=True), nullable=True)
     has_errors      = Column(Boolean, default=False)
@@ -29,6 +33,20 @@ class Analysis(Base):
 
     def __repr__(self):
         return f"<Analysis id={self.id} name={self.process_name} status={self.status}>"
+
+
+class ChatMessage(Base):
+    """Mensajes de chat persistidos por sesión."""
+    __tablename__ = "chat_messages"
+
+    id         = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    session_id = Column(String, ForeignKey("analyses.id"), nullable=False, index=True)
+    role       = Column(String(50), nullable=False)   # user | assistant
+    content    = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self):
+        return f"<ChatMessage session={self.session_id} role={self.role}>"
 
 
 class Tenant(Base):

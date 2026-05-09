@@ -347,6 +347,11 @@ async def _run_pipeline(session_id: str, process_name: str = "Sin nombre") -> No
             score = final_state.waste_analysis.waste_percentage if final_state.waste_analysis else None
             with SessionLocal() as db:
                 repo.complete_analysis(db, session_id, full_report, score)
+            bpmn_tobe = final_state.bpmn_output.file_path if final_state.bpmn_output else None
+            bpmn_asis = final_state.bpmn_asis_output
+            if bpmn_tobe or bpmn_asis:
+                with SessionLocal() as db:
+                    repo.update_bpmn_paths(db, session_id, bpmn_tobe, bpmn_asis)
         else:
             _sessions[session_id].current_node = "error"
             _sessions[session_id].errors.append("pipeline: resultado inválido del grafo")
@@ -463,12 +468,22 @@ async def download_bpmn(
 ):
     state = _get_session(session_id, user_id=current_user.id)
     _assert_session_owner(state, current_user)
-    if not state.bpmn_ok or state.bpmn_output is None:
-        raise HTTPException(status_code=425, detail="El diagrama BPMN aún no está disponible.")
-    file_path = Path(state.bpmn_output.file_path)
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Archivo BPMN no encontrado en el servidor.")
-    return FileResponse(path=str(file_path), media_type="application/xml", filename=file_path.name)
+
+    # Try in-memory state first
+    if state.bpmn_ok and state.bpmn_output:
+        file_path = Path(state.bpmn_output.file_path)
+        if file_path.exists():
+            return FileResponse(path=str(file_path), media_type="application/xml", filename=file_path.name)
+
+    # Fall back to DB-persisted path (recovered sessions / restart scenario)
+    with SessionLocal() as db:
+        record = repo.get_analysis(db, session_id, user_id=current_user.id)
+    if record and record.bpmn_tobe_path:
+        file_path = Path(record.bpmn_tobe_path)
+        if file_path.exists():
+            return FileResponse(path=str(file_path), media_type="application/xml", filename=file_path.name)
+
+    raise HTTPException(status_code=425, detail="El diagrama BPMN aún no está disponible.")
 
 
 @app.get("/sessions/{session_id}/bpmn/asis", tags=["Resultados"], response_class=FileResponse)
@@ -478,12 +493,22 @@ async def download_asis_bpmn(
 ):
     state = _get_session(session_id, user_id=current_user.id)
     _assert_session_owner(state, current_user)
-    if not state.bpmn_asis_output:
-        raise HTTPException(status_code=425, detail="El diagrama BPMN AS-IS aún no está disponible.")
-    file_path = Path(state.bpmn_asis_output)
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Archivo BPMN AS-IS no encontrado en el servidor.")
-    return FileResponse(path=str(file_path), media_type="application/xml", filename=file_path.name)
+
+    # Try in-memory state first
+    if state.bpmn_asis_output:
+        file_path = Path(state.bpmn_asis_output)
+        if file_path.exists():
+            return FileResponse(path=str(file_path), media_type="application/xml", filename=file_path.name)
+
+    # Fall back to DB-persisted path (recovered sessions / restart scenario)
+    with SessionLocal() as db:
+        record = repo.get_analysis(db, session_id, user_id=current_user.id)
+    if record and record.bpmn_asis_path:
+        file_path = Path(record.bpmn_asis_path)
+        if file_path.exists():
+            return FileResponse(path=str(file_path), media_type="application/xml", filename=file_path.name)
+
+    raise HTTPException(status_code=425, detail="El diagrama BPMN AS-IS aún no está disponible.")
 
 
 @app.get("/sessions/{session_id}/report", tags=["Resultados"])
@@ -618,6 +643,11 @@ async def _resume_pipeline(session_id: str) -> None:
             score = final_state.waste_analysis.waste_percentage if final_state.waste_analysis else None
             with SessionLocal() as db:
                 repo.complete_analysis(db, session_id, full_report, score)
+            bpmn_tobe = final_state.bpmn_output.file_path if final_state.bpmn_output else None
+            bpmn_asis = final_state.bpmn_asis_output
+            if bpmn_tobe or bpmn_asis:
+                with SessionLocal() as db:
+                    repo.update_bpmn_paths(db, session_id, bpmn_tobe, bpmn_asis)
         logger.info(f"Pipeline reanudado post-HITL: {session_id}")
     except Exception as e:
         logger.error(f"Error al reanudar pipeline {session_id}: {e}")

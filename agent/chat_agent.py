@@ -13,6 +13,8 @@ from auth.dependencies import get_current_user
 from llm.factory import get_llm
 from observability.logger import get_logger
 from storage.models import User
+from storage.database import SessionLocal
+from storage import repository as repo
 
 logger = get_logger(__name__)
 
@@ -130,13 +132,21 @@ async def chat(request: ChatRequest, current_user: User = Depends(get_current_us
             detail=f"Error al generar respuesta: {str(e)}",
         )
 
-    # Guardar en historial
+    # Guardar en historial en memoria
     history.append({"role": "user", "content": request.mensaje})
     history.append({"role": "assistant", "content": respuesta_texto})
 
-    # Limitar tamaño del historial
+    # Limitar tamaño del historial en memoria
     if len(history) > MAX_HISTORY_MESSAGES * 2:
         _chat_histories[sid] = history[-(MAX_HISTORY_MESSAGES * 2):]
+
+    # Persistir en SQLite para supervivir reinicios
+    try:
+        with SessionLocal() as db:
+            repo.save_chat_message(db, sid, "user", request.mensaje)
+            repo.save_chat_message(db, sid, "assistant", respuesta_texto)
+    except Exception as exc:
+        logger.warning(f"No se pudo persistir chat en DB (sesión {sid}): {exc}")
 
     logger.info(f"Chat sesión {sid}: {len(history)} mensajes en historial")
 
@@ -167,6 +177,12 @@ async def clear_chat_history(session_id: str, current_user: User = Depends(get_c
 async def get_chat_history(session_id: str, current_user: User = Depends(get_current_user)):
     """Retorna el historial completo de chat de una sesión."""
     history = _chat_histories.get(session_id, [])
+    if not history:
+        try:
+            with SessionLocal() as db:
+                history = repo.get_chat_messages(db, session_id)
+        except Exception as exc:
+            logger.warning(f"No se pudo cargar chat desde DB (sesión {session_id}): {exc}")
     return {
         "session_id": session_id,
         "mensajes": history,

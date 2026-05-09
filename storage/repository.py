@@ -3,7 +3,7 @@ import json
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
-from storage.models import Analysis
+from storage.models import Analysis, ChatMessage
 
 
 def create_analysis(
@@ -104,6 +104,38 @@ def reconstruct_state_from_db(record) -> dict:
         "tenant_id": record.tenant_id,
         "errors": [],
     }
+
+
+def update_bpmn_paths(
+    db: Session,
+    session_id: str,
+    tobe_path: Optional[str] = None,
+    asis_path: Optional[str] = None,
+) -> None:
+    record = db.query(Analysis).filter(Analysis.id == session_id).first()
+    if not record:
+        return
+    if tobe_path is not None:
+        record.bpmn_tobe_path = tobe_path
+    if asis_path is not None:
+        record.bpmn_asis_path = asis_path
+    db.commit()
+
+
+def save_chat_message(db: Session, session_id: str, role: str, content: str) -> None:
+    msg = ChatMessage(session_id=session_id, role=role, content=content)
+    db.add(msg)
+    db.commit()
+
+
+def get_chat_messages(db: Session, session_id: str) -> list[dict]:
+    rows = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.created_at)
+        .all()
+    )
+    return [{"role": r.role, "content": r.content} for r in rows]
 
 
 def list_analyses(

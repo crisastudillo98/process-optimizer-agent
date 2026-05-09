@@ -118,7 +118,10 @@ def refresh_tokens(body: RefreshRequest, db: Session = Depends(get_db)):
     if not stored:
         raise HTTPException(status_code=401, detail="Token revoked or not found")
 
-    if stored.expires_at < datetime.now(timezone.utc):
+    expires = stored.expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if expires < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Refresh token expired")
 
     user = db.query(User).filter(User.id == payload["sub"], User.is_active == True).first()

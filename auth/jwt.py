@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from jose import JWTError, jwt
@@ -8,7 +8,7 @@ from config.settings import settings
 
 
 def create_access_token(user_id: str, tenant_id: str, role: str) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {
         "sub": user_id,
         "tenant_id": tenant_id,
@@ -21,7 +21,7 @@ def create_access_token(user_id: str, tenant_id: str, role: str) -> str:
 
 
 def create_refresh_token(user_id: str) -> tuple[str, datetime]:
-    expire = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
     payload = {
         "sub": user_id,
         "exp": expire,

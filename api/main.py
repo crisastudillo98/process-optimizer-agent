@@ -1227,7 +1227,10 @@ async def get_invitation(token: str):
             raise HTTPException(status_code=404, detail="Invitation not found.")
         if invitation.status != "pending":
             raise HTTPException(status_code=404, detail="Invitation is no longer valid.")
-        if invitation.expires_at < datetime.now(timezone.utc):
+        inv_expires = invitation.expires_at
+        if inv_expires.tzinfo is None:
+            inv_expires = inv_expires.replace(tzinfo=timezone.utc)
+        if inv_expires < datetime.now(timezone.utc):
             invitation.status = "expired"
             db.commit()
             raise HTTPException(status_code=404, detail="Invitation has expired.")
@@ -1280,7 +1283,10 @@ async def accept_process_invitation(
         ).first()
         if not invitation:
             raise HTTPException(status_code=404, detail="Invitation not found or already used.")
-        if invitation.expires_at < datetime.now(timezone.utc):
+        inv_expires = invitation.expires_at
+        if inv_expires.tzinfo is None:
+            inv_expires = inv_expires.replace(tzinfo=timezone.utc)
+        if inv_expires < datetime.now(timezone.utc):
             invitation.status = "expired"
             db.commit()
             raise HTTPException(status_code=410, detail="Invitation has expired.")

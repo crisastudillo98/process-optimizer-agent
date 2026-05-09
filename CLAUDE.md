@@ -140,6 +140,49 @@ Tests are marked with `@pytest.mark.integration` when they require live API keys
 ### New repository helper (`storage/repository.py`)
 - `reconstruct_state_from_db(record) -> dict` — builds minimal AgentState dict from SQLite `Analysis` record for session recovery
 
+## Sprint 4 additions — Roles and Collaboration
+
+### Business role concept
+Two business roles are separate from the system role (owner/admin/member/viewer):
+- `consultor` (default) — creates processes, invites collaborators, sees full pipeline, runs HITL reviews
+- `colaborador` — invited to specific processes only; describes their part via chat; cannot create processes
+
+`business_role` is stored in `users.business_role` and returned by `/auth/me`, `/auth/login`, `/auth/register`.
+
+### New DB tables (`storage/models.py`)
+- `process_collaborators` — links users to specific analyses as collaborators (status: pending|active|completed)
+- `invitations` — external email invitations with a signed token (status: pending|accepted|expired, expires 7 days)
+- `notifications` — in-app notifications (type: process_invitation|collaborator_completed|hitl_required|analysis_complete)
+
+### New API endpoints (`api/main.py`)
+**Collaboration:**
+- `POST /analyses/{id}/invite` — invite by email; if user exists in tenant → creates `ProcessCollaborator` + `Notification`; if not → creates `Invitation` with token
+- `GET /analyses/{id}/collaborators` — list collaborators with status (owner only)
+- `POST /analyses/{id}/collaborators/{user_id}/complete` — collaborador marks their input done; notifies owner
+
+**Notifications:**
+- `GET /notifications?unread_only=true` — returns list + unread_count
+- `POST /notifications/{id}/read` — mark one read
+- `POST /notifications/read-all` — mark all read
+
+**Invitations:**
+- `POST /invitations/{token}/accept` — accept external process invite; creates user (business_role=colaborador) if new, creates `ProcessCollaborator` (active), issues JWT
+
+### GET /analyses updated
+Returns both owned analyses and analyses where user is a collaborator (status active/completed).
+Each item now includes `is_owner: bool` and `collaborator_status: str | null`.
+
+### auth/dependencies.py
+Added `get_optional_user` — returns `User | None` without raising 401 (used by invitation acceptance).
+
+### Frontend changes (`docs/`)
+- `docs/js/api.js` — new `notifications` and `collaboration` export objects
+- `docs/dashboard.html` — notification bell in topbar: unread badge, dropdown (last 5), polls every 30s
+- `docs/workspace.html`:
+  - Notification bell in topbar
+  - TEAM section in left panel (consultors only): collaborator list + invite modal
+  - Collaborador view (when `business_role === "colaborador"`): hides HITL banners, BPMN/metrics buttons; shows guided chat header with initial greeting; "Validate and Submit" button that calls complete endpoint
+
 ## Known limitations
 
 - Sessions are in-process memory; restarting the server loses **active** (non-completed) sessions. Completed sessions are recovered from SQLite automatically.

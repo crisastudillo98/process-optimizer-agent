@@ -182,6 +182,8 @@ export const collaboration = {
     apiRequest('GET', `/analyses/${analysisId}/collaborators`),
   complete: (analysisId, userId) =>
     apiRequest('POST', `/analyses/${analysisId}/collaborators/${userId}/complete`),
+  getInvitation: (token) =>
+    apiRequest('GET', `/invitations/${token}`),
   acceptInvite: (token, data) =>
     apiRequest('POST', `/invitations/${token}/accept`, data)
 };

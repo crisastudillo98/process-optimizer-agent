@@ -1212,6 +1212,45 @@ async def mark_all_notifications_read(
 # INVITATIONS — Accept external invite
 # ─────────────────────────────────────────────
 
+@app.get("/invitations/{token}", tags=["Invitations"])
+async def get_invitation(token: str):
+    """
+    Returns invitation context (process name, inviter, email) so the
+    accept-invite page can show the user what they're joining.
+    No auth required. Returns 404 if token not found, expired, or used.
+    """
+    with SessionLocal() as db:
+        invitation = db.query(Invitation).filter(
+            Invitation.token == token,
+        ).first()
+        if not invitation:
+            raise HTTPException(status_code=404, detail="Invitation not found.")
+        if invitation.status != "pending":
+            raise HTTPException(status_code=404, detail="Invitation is no longer valid.")
+        if invitation.expires_at < datetime.now(timezone.utc):
+            invitation.status = "expired"
+            db.commit()
+            raise HTTPException(status_code=404, detail="Invitation has expired.")
+
+        analysis = db.query(db_models.Analysis).filter(
+            db_models.Analysis.id == invitation.analysis_id,
+        ).first()
+        inviter = db.query(User).filter(User.id == invitation.invited_by).first()
+
+        return {
+            "process_name":     analysis.process_name if analysis else "Unknown Process",
+            "invited_by_name":  inviter.full_name if inviter else "Unknown",
+            "email":            invitation.email,
+            "expires_at":       invitation.expires_at.isoformat(),
+        }
+
+
+@app.get("/accept-invite/{token}", include_in_schema=False)
+async def accept_invite_page(token: str):
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/docs/accept-invite.html?token={token}")
+
+
 class AcceptInviteRequest(BaseModel):
     email: Optional[str] = None
     password: Optional[str] = None

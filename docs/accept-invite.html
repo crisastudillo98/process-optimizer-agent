@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProcessOptimizer — Accept Invitation</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body { display: block; overflow: auto; }
+    .auth-wrapper { overflow: auto; min-height: 100vh; }
+    .invite-context {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .invite-context .invite-label {
+      font-size: 0.72rem;
+      color: var(--very-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.35rem;
+    }
+    .invite-context .invite-process {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+    .invite-context .invite-by {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .invite-context .invite-by strong {
+      color: var(--primary);
+    }
+    #loading-state {
+      text-align: center;
+      padding: 2rem 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="auth-wrapper">
+  <!-- Left brand panel -->
+  <div class="auth-left">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:2.5rem;">
+      <svg width="40" height="40" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#00d4aa" stroke-width="1.5" fill="none" opacity="0.5"/>
+        <path d="M16 8L22 14L16 20L10 14L16 8Z" fill="#00d4aa" fill-opacity="0.15" stroke="#00d4aa" stroke-width="1.5"/>
+        <circle cx="16" cy="14" r="2.5" fill="#00d4aa"/>
+        <path d="M16 17.5V21" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M14.5 19.5L16 21L17.5 19.5" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="logo-text" style="font-size:1.3rem;">Process<span>Optix</span> <span style="color:var(--muted);font-size:0.75rem;font-weight:500;">AI</span></span>
+    </div>
+
+    <h1 style="font-size:2rem;font-weight:800;letter-spacing:-0.04em;margin-bottom:1rem;line-height:1.2;">
+      You've been invited to<br>
+      <span style="color:var(--primary);">collaborate</span>
+    </h1>
+    <p style="color:var(--muted);font-size:0.95rem;line-height:1.6;max-width:380px;">
+      Your team needs your expertise. Describe your part of the process and help shape the optimization together.
+    </p>
+
+    <div class="feature-pills">
+      <span class="feature-pill">Team Collaboration</span>
+      <span class="feature-pill">Process Mapping</span>
+      <span class="feature-pill">AI Optimization</span>
+    </div>
+
+    <div style="margin-top:3rem;padding:1.25rem;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;">
+      <p style="font-size:0.82rem;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--text);">"</strong>
+        Having every team member describe their part gave us process insights we never had before.
+        <strong style="color:var(--text);">"</strong>
+      </p>
+      <p style="font-size:0.75rem;color:var(--very-muted);margin-top:0.5rem;">— Process Manager, Logistics Co.</p>
+    </div>
+  </div>
+
+  <!-- Right auth panel -->
+  <div class="auth-right">
+    <div class="auth-card">
+      <div class="error-msg" id="error-msg"></div>
+
+      <!-- Loading state -->
+      <div id="loading-state">
+        <div class="spinner" style="display:inline-block;border-top-color:var(--primary);width:24px;height:24px;margin-bottom:0.75rem;"></div>
+        <p>Loading invitation...</p>
+      </div>
+
+      <!-- Invitation form (hidden until loaded) -->
+      <div id="invite-form" style="display:none;">
+        <h2>Join the workspace</h2>
+        <p class="subtitle">Create your account to get started</p>
+
+        <!-- Invitation context card -->
+        <div class="invite-context" id="invite-context">
+          <div class="invite-label">You've been invited to collaborate on</div>
+          <div class="invite-process" id="ctx-process-name">—</div>
+          <div class="invite-by">invited by <strong id="ctx-invited-by">—</strong></div>
+        </div>
+
+        <div class="auth-form-group">
+          <label for="reg-name">Full name</label>
+          <input type="text" id="reg-name" placeholder="Jane Smith" autocomplete="name">
+        </div>
+        <div class="auth-form-group">
+          <label for="reg-email">Email</label>
+          <input type="email" id="reg-email" placeholder="you@company.com" autocomplete="email" readonly>
+        </div>
+        <div class="auth-form-group">
+          <label for="reg-password">Password <span style="color:var(--muted);font-weight:400;font-size:0.78rem;">(min 8 chars)</span></label>
+          <input type="password" id="reg-password" placeholder="••••••••" autocomplete="new-password">
+        </div>
+
+        <button class="btn-auth" id="submit-btn" onclick="doAccept()">
+          <span id="submit-text">Accept invitation →</span>
+          <span class="spinner" id="submit-spinner" style="border-top-color:#0a0a0f;"></span>
+        </button>
+
+        <div class="auth-switch">
+          Already have an account?
+          <a href="login.html">Sign in</a>
+        </div>
+      </div>
+
+      <!-- Invalid/expired state -->
+      <div id="invalid-state" style="display:none;text-align:center;padding:1.5rem 0;">
+        <div style="font-size:2.5rem;margin-bottom:1rem;">🔗</div>
+        <h2 style="margin-bottom:0.5rem;">Invitation unavailable</h2>
+        <p class="subtitle" id="invalid-message">This invitation link is no longer valid.</p>
+        <a href="login.html" style="display:inline-block;margin-top:1.5rem;color:var(--primary);font-size:0.9rem;text-decoration:none;font-weight:500;">Go to sign in →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { collaboration } from './js/api.js';
+
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+
+  function clearError() {
+    const el = document.getElementById('error-msg');
+    el.textContent = '';
+    el.classList.remove('visible');
+  }
+
+  function setLoading(loading) {
+    document.getElementById('submit-btn').disabled = loading;
+    document.getElementById('submit-spinner').style.display = loading ? 'inline-block' : 'none';
+    document.getElementById('submit-text').style.opacity = loading ? '0' : '1';
+  }
+
+  async function loadInvitation() {
+    if (!token) {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('invalid-state').style.display = 'block';
+      document.getElementById('invalid-message').textContent = 'No invitation token provided.';
+      return;
+    }
+
+    try {
+      const data = await collaboration.getInvitation(token);
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('invite-form').style.display = 'block';
+      document.getElementById('ctx-process-name').textContent = data.process_name;
+      document.getElementById('ctx-invited-by').textContent = data.invited_by_name;
+      document.getElementById('reg-email').value = data.email;
+    } catch (e) {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('invalid-state').style.display = 'block';
+      document.getElementById('invalid-message').textContent =
+        e.message.includes('expired') ? 'This invitation has expired.' : 'This invitation link is invalid or has already been used.';
+    }
+  }
+
+  window.doAccept = async function() {
+    const full_name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+
+    if (!full_name) { showError('Please enter your full name.'); return; }
+    if (password.length < 8) { showError('Password must be at least 8 characters.'); return; }
+
+    clearError();
+    setLoading(true);
+
+    try {
+      const tokens = await collaboration.acceptInvite(token, { full_name, email, password });
+      if (!tokens) return;
+      localStorage.setItem('access_token', tokens.access_token);
+      localStorage.setItem('refresh_token', tokens.refresh_token);
+      window.location.href = 'dashboard.html';
+    } catch (e) {
+      showError(e.message || 'Failed to accept invitation. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.getElementById('invite-form').style.display !== 'none') {
+      window.doAccept();
+    }
+  });
+
+  loadInvitation();
+</script>
+</body>
+</html>

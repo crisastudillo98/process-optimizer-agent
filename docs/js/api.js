@@ -91,7 +91,9 @@ export const analyses = {
   list: (limit = 50) =>
     apiRequest('GET', `/analyses?limit=${limit}`),
   get: (id) =>
-    apiRequest('GET', `/analyses/${id}`)
+    apiRequest('GET', `/analyses/${id}`),
+  getContribution: (analysisId, userId) =>
+    apiRequest('GET', `/analyses/${analysisId}/collaborators/${userId}/contribution`)
 };
 
 // Sessions (live pipeline sessions)

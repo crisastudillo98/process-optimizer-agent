@@ -252,7 +252,7 @@
 </div>
 
 <script type="module">
-  import { requireAuth, auth, sessions, chat, sources, refinement, apiBlob, notifications, collaboration } from './js/api.js';
+  import { requireAuth, auth, sessions, chat, sources, refinement, apiBlob, notifications, collaboration, analyses } from './js/api.js';
   import { setUser, setReport, state } from './js/state.js';
 
   if (!requireAuth()) throw new Error('Not authenticated');
@@ -1056,10 +1056,65 @@
             <div style="font-size:0.68rem;color:var(--muted);">${c.email}</div>
           </div>
           <span style="font-size:0.65rem;padding:2px 6px;border-radius:10px;background:${statusColor[c.status] || '#6b7280'}22;color:${statusColor[c.status] || '#6b7280'};font-weight:600;">${c.status}</span>
+          ${c.status === 'completed' ? `
+            <button onclick="viewContribution('${c.user_id}')"
+              style="font-size:0.65rem;padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:none;color:var(--muted);cursor:pointer;"
+              onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">View</button>
+          ` : ''}
         </div>
       `).join('');
+
+      // Show "Unify Contributions" button only if at least 1 collaborator completed
+      const anyCompleted = data.collaborators.some(c => c.status === 'completed');
+      const unifyBtn = document.getElementById('btn-unify');
+      if (unifyBtn) unifyBtn.style.display = anyCompleted ? 'block' : 'none';
     } catch(_) {}
   }
+
+  window.viewContribution = async function(userId) {
+    const modal = document.getElementById('contribution-modal');
+    const body = document.getElementById('contribution-body');
+    const title = document.getElementById('contribution-title');
+    body.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">Loading…</div>';
+    modal.style.display = 'flex';
+    try {
+      const data = await analyses.getContribution(sessionId, userId);
+      if (!data) return;
+      title.textContent = `${data.collaborator.name} — Contribution`;
+      const completedAt = data.collaborator.completed_at
+        ? new Date(data.collaborator.completed_at).toLocaleString()
+        : '—';
+      const bubbles = (data.chat_history || []).map(m => {
+        const isUser = m.role === 'user';
+        const align = isUser ? 'flex-end' : 'flex-start';
+        const bg    = isUser ? 'var(--primary)' : 'var(--surface-2)';
+        const color = isUser ? '#0a0a0f' : 'var(--text)';
+        const label = isUser ? data.collaborator.name : 'Assistant';
+        const safe = (m.content || '').replace(/[<>]/g, s => s === '<' ? '&lt;' : '&gt;');
+        return `
+          <div style="display:flex;justify-content:${align};margin-bottom:0.6rem;">
+            <div style="max-width:78%;">
+              <div style="font-size:0.65rem;color:var(--muted);margin-bottom:0.2rem;${isUser ? 'text-align:right;' : ''}">${label}</div>
+              <div style="background:${bg};color:${color};padding:0.55rem 0.8rem;border-radius:10px;font-size:0.82rem;line-height:1.5;white-space:pre-wrap;">${safe}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      body.innerHTML = `
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:0.9rem;">
+          ${data.collaborator.email} · ${data.collaborator.status} · completed ${completedAt}
+        </div>
+        ${bubbles || '<div style="color:var(--muted);font-size:0.85rem;">No chat messages.</div>'}
+      `;
+    } catch (e) {
+      body.innerHTML = `<div style="color:#ef4444;font-size:0.85rem;">Error: ${e.message}</div>`;
+    }
+  };
+
+  window.closeContributionModal = function() {
+    document.getElementById('contribution-modal').style.display = 'none';
+  };
 
   // ── Raw Input Modal ───────────────────────────────────
   window.showRawInput = function() {
@@ -1263,6 +1318,17 @@
         </button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Collaborator Contribution Modal -->
+<div id="contribution-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:min(640px,92vw);max-height:84vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div id="contribution-title" style="font-weight:600;font-size:0.92rem;">Collaborator contribution</div>
+      <button onclick="closeContributionModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;line-height:1;">✕</button>
+    </div>
+    <div id="contribution-body" style="overflow-y:auto;padding:1.1rem 1.4rem;flex:1;"></div>
   </div>
 </div>
 

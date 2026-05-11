@@ -1093,6 +1093,19 @@ async def list_collaborators(
     return {"collaborators": result}
 
 
+def _build_contribution_summary(chat_history: list[dict]) -> str:
+    """Concatenate a collaborator's chat into a compact textual contribution."""
+    if not chat_history:
+        return ""
+    lines = []
+    for m in chat_history:
+        role = "Colaborador" if m.get("role") == "user" else "Asistente"
+        content = (m.get("content") or "").strip()
+        if content:
+            lines.append(f"{role}: {content}")
+    return "\n".join(lines)
+
+
 @app.post("/analyses/{analysis_id}/collaborators/{user_id}/complete", tags=["Collaboration"])
 async def complete_collaboration(
     analysis_id: str,
@@ -1119,6 +1132,12 @@ async def complete_collaboration(
         collab.status = "completed"
         collab.completed_at = datetime.now(timezone.utc)
 
+        # Capture chat session and build contribution summary from messages
+        session_id = collab.session_id or f"{analysis_id}_{user_id}_collab"
+        collab.session_id = session_id
+        chat_history = repo.get_chat_messages(db, session_id)
+        collab.contribution_summary = _build_contribution_summary(chat_history)
+
         # Notify the analysis owner
         if analysis and analysis.user_id:
             notif = Notification(
@@ -1138,6 +1157,63 @@ async def complete_collaboration(
         logger.info(f"Collaboration completed: analysis={analysis_id} user={user_id}")
 
     return {"status": "completed"}
+
+
+@app.get(
+    "/analyses/{analysis_id}/collaborators/{user_id}/contribution",
+    tags=["Collaboration"],
+)
+async def get_collaborator_contribution(
+    analysis_id: str,
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Owner-only view of a collaborator's chat history and contribution summary."""
+    with SessionLocal() as db:
+        analysis = db.query(db_models.Analysis).filter(
+            db_models.Analysis.id == analysis_id,
+            db_models.Analysis.tenant_id == current_user.tenant_id,
+        ).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis not found.")
+        if analysis.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the process owner can view contributions.")
+
+        collab = db.query(ProcessCollaborator).filter(
+            ProcessCollaborator.analysis_id == analysis_id,
+            ProcessCollaborator.user_id == user_id,
+        ).first()
+        if not collab:
+            raise HTTPException(status_code=404, detail="Collaboration record not found.")
+
+        collaborator = db.query(User).filter(User.id == user_id).first()
+        session_id = collab.session_id or f"{analysis_id}_{user_id}_collab"
+
+        rows = (
+            db.query(db_models.ChatMessage)
+            .filter(db_models.ChatMessage.session_id == session_id)
+            .order_by(db_models.ChatMessage.created_at)
+            .all()
+        )
+        chat_history = [
+            {
+                "role": r.role,
+                "content": r.content,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]
+
+    return {
+        "collaborator": {
+            "name":  collaborator.full_name if collaborator else "Unknown",
+            "email": collaborator.email if collaborator else "Unknown",
+            "status": collab.status,
+            "completed_at": collab.completed_at.isoformat() if collab.completed_at else None,
+        },
+        "chat_history": chat_history,
+        "contribution_summary": collab.contribution_summary,
+    }
 
 
 # ─────────────────────────────────────────────

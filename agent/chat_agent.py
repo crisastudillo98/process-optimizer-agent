@@ -31,8 +31,8 @@ class ChatRequest(BaseModel):
         description="Mensaje del usuario",
     )
     contexto_analisis: dict = Field(
-        ...,
-        description="JSON completo del análisis de proceso (AS-IS, desperdicios, TO-BE, KPIs)",
+        default_factory=dict,
+        description="JSON completo del análisis de proceso (AS-IS, desperdicios, TO-BE, KPIs). Puede ser vacío para colaboradores.",
     )
     session_id: str = Field(
         default="default",
@@ -51,6 +51,30 @@ class ChatResponse(BaseModel):
 # ─────────────────────────────────────────────
 
 _chat_histories: dict[str, list[dict]] = {}
+
+COLABORADOR_SYSTEM_PROMPT = """\
+Eres un asistente experto en levantamiento de procesos.
+Tu objetivo es recopilar información detallada sobre las
+actividades que realiza este colaborador en el proceso
+"{process_name}".
+
+Guía la conversación para obtener:
+1. Actividades y tareas específicas que realiza
+2. Tiempo estimado de cada actividad
+3. Herramientas y sistemas que usa
+4. Personas con quienes interactúa
+5. Problemas o dificultades frecuentes
+6. Sugerencias de mejora que tenga
+
+Haz preguntas concretas y específicas. Cuando sientas que
+tienes información suficiente sobre todos los puntos,
+resume lo que entendiste y pregunta al colaborador si está
+de acuerdo o si hay algo que corregir.
+
+Responde siempre en español. Sé amigable y empático.
+No uses jerga técnica compleja.
+"""
+
 
 SYSTEM_PROMPT_TEMPLATE = """\
 Eres un consultor experto en Lean Manufacturing, Six Sigma y Kaizen con 20+ años de experiencia \
@@ -140,9 +164,23 @@ async def chat(request: ChatRequest, current_user: User = Depends(get_current_us
 
     history = _chat_histories[sid]
 
-    # Construir system prompt con contexto del análisis (truncado para evitar 413)
-    contexto_str = _truncate_context(request.contexto_analisis)
-    system_message = SYSTEM_PROMPT_TEMPLATE.format(contexto=contexto_str)
+    # Build system prompt — colaboradores receive a process-elicitation prompt
+    # instead of the consultant follow-up prompt.
+    if (current_user.business_role or "").lower() == "colaborador":
+        process_name = "este proceso"
+        analysis_id = sid.split("_")[0] if "_" in sid else sid
+        try:
+            with SessionLocal() as db:
+                analysis = repo.get_analysis(db, analysis_id)
+                if analysis and analysis.process_name:
+                    process_name = analysis.process_name
+        except Exception as exc:
+            logger.warning(f"No se pudo cargar process_name (sesión {sid}): {exc}")
+        system_message = COLABORADOR_SYSTEM_PROMPT.format(process_name=process_name)
+    else:
+        # Construir system prompt con contexto del análisis (truncado para evitar 413)
+        contexto_str = _truncate_context(request.contexto_analisis)
+        system_message = SYSTEM_PROMPT_TEMPLATE.format(contexto=contexto_str)
 
     # Construir lista de mensajes para el LLM
     from langchain_core.messages import SystemMessage, HumanMessage, AIMessage

@@ -106,6 +106,9 @@ class ProcessCollaborator(Base):
     status      = Column(String(50), default="pending")   # pending|active|completed
     created_at  = Column(DateTime, server_default=func.now())
     completed_at = Column(DateTime, nullable=True)
+    # Sprint 5 — collaborator chat session and synthesized summary
+    session_id          = Column(String, nullable=True)   # {analysis_id}_{user_id}_collab
+    contribution_summary = Column(Text, nullable=True)
 
     def __repr__(self):
         return f"<ProcessCollaborator analysis={self.analysis_id} user={self.user_id} status={self.status}>"

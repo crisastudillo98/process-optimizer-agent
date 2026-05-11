@@ -1216,6 +1216,138 @@ async def get_collaborator_contribution(
     }
 
 
+UNIFY_SYSTEM_PROMPT = """\
+You are a process analysis expert.
+Multiple team members have described their parts of the process "{process_name}".
+
+Here are their contributions:
+{contributions}
+
+Your task:
+1. Identify all unique activities mentioned.
+2. Remove duplicates and overlaps.
+3. Order activities in logical sequence.
+4. Estimate total process duration.
+5. Return a unified AS-IS process in this JSON format:
+{{
+  "name": "process name",
+  "description": "unified description",
+  "department": "department",
+  "objective": "objective",
+  "activities": [
+    {{
+      "name": "activity name",
+      "description": "description",
+      "responsible": "role/person",
+      "estimated_duration_min": 15,
+      "activity_type": "operativa|analitica|cognitiva",
+      "dependencies": []
+    }}
+  ]
+}}
+
+Return ONLY valid JSON, no markdown, no explanations.
+"""
+
+
+@app.post("/analyses/{analysis_id}/unify", tags=["Collaboration"])
+async def unify_contributions(
+    analysis_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Synthesize a unified AS-IS process from all completed collaborator chats."""
+    from llm.factory import get_llm
+    import json as _json
+    import re
+
+    with SessionLocal() as db:
+        analysis = db.query(db_models.Analysis).filter(
+            db_models.Analysis.id == analysis_id,
+            db_models.Analysis.tenant_id == current_user.tenant_id,
+        ).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis not found.")
+        if analysis.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the process owner can unify contributions.")
+
+        completed = db.query(ProcessCollaborator).filter(
+            ProcessCollaborator.analysis_id == analysis_id,
+            ProcessCollaborator.status == "completed",
+        ).all()
+        if not completed:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one collaborator must complete their contribution before unifying.",
+            )
+
+        # Build per-collaborator contribution blocks
+        blocks = []
+        for idx, c in enumerate(completed, start=1):
+            user = db.query(User).filter(User.id == c.user_id).first()
+            name = user.full_name if user else f"Collaborator {idx}"
+            session_id = c.session_id or f"{analysis_id}_{c.user_id}_collab"
+            history = repo.get_chat_messages(db, session_id)
+            summary = c.contribution_summary or _build_contribution_summary(history)
+            if not summary:
+                continue
+            blocks.append(f"COLLABORATOR {idx} ({name}):\n{summary}")
+
+        if not blocks:
+            raise HTTPException(
+                status_code=400,
+                detail="No collaborator chat content available to unify.",
+            )
+
+        prompt = UNIFY_SYSTEM_PROMPT.format(
+            process_name=analysis.process_name or "Unknown",
+            contributions="\n\n".join(blocks),
+        )
+
+    # LLM call outside the DB session
+    try:
+        from langchain_core.messages import HumanMessage
+        llm = get_llm(temperature=0.2)
+        response = llm.invoke([HumanMessage(content=prompt)])
+        raw = (response.content or "").strip()
+    except Exception as e:
+        logger.error(f"LLM error during unify (analysis={analysis_id}): {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"LLM failed to synthesize the unified process: {e}",
+        )
+
+    # Strip code fences if the model added them despite instructions
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+
+    try:
+        unified = _json.loads(raw)
+    except _json.JSONDecodeError as e:
+        logger.error(f"Unify produced invalid JSON (analysis={analysis_id}): {e}\nRaw: {raw[:500]}")
+        raise HTTPException(
+            status_code=500,
+            detail="LLM returned invalid JSON. Try again or adjust the collaborator chats.",
+        )
+
+    # Persist: store unified AS-IS into result_json, and update raw_input for future reruns
+    with SessionLocal() as db:
+        record = db.query(db_models.Analysis).filter(
+            db_models.Analysis.id == analysis_id,
+        ).first()
+        if record:
+            existing = _json.loads(record.result_json) if record.result_json else {}
+            existing["asis_process"] = unified
+            existing["unified_from_collaborators"] = True
+            record.result_json = _json.dumps(existing, default=str)
+            # Rebuild a textual raw_input so the pipeline can re-extract if needed
+            record.raw_input = "\n\n".join(blocks)
+            db.commit()
+            logger.info(f"Unified AS-IS generated for analysis={analysis_id} from {len(blocks)} collaborator(s)")
+
+    return {"unified_asis": unified, "message": "Unified successfully"}
+
+
 # ─────────────────────────────────────────────
 # NOTIFICATIONS
 # ─────────────────────────────────────────────

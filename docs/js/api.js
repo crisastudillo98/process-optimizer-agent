@@ -93,7 +93,9 @@ export const analyses = {
   get: (id) =>
     apiRequest('GET', `/analyses/${id}`),
   getContribution: (analysisId, userId) =>
-    apiRequest('GET', `/analyses/${analysisId}/collaborators/${userId}/contribution`)
+    apiRequest('GET', `/analyses/${analysisId}/collaborators/${userId}/contribution`),
+  unify: (analysisId) =>
+    apiRequest('POST', `/analyses/${analysisId}/unify`)
 };
 
 // Sessions (live pipeline sessions)

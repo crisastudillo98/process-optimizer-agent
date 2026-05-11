@@ -12,6 +12,21 @@
     #workspace-root { display: flex; flex-direction: column; flex: 1; height: 100vh; overflow: hidden; }
     .workspace-chat-messages { flex: 1; overflow-y: auto; }
     .panel-center { display: flex; flex-direction: column; overflow: hidden; }
+    .btn-unify {
+      width: 100%;
+      padding: 0.6rem;
+      background: linear-gradient(135deg, var(--accent), #0ea5e9);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.75rem;
+      transition: opacity 0.2s;
+    }
+    .btn-unify:hover { opacity: 0.9; }
+    .btn-unify:disabled { opacity: 0.4; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -153,6 +168,9 @@
           onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'"
           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
           + Invite Collaborator
+        </button>
+        <button id="btn-unify" class="btn-unify" onclick="unifyContributions()" style="display:none;">
+          ⚡ Unify All Contributions
         </button>
       </div>
     </div>
@@ -1115,6 +1133,37 @@
   window.closeContributionModal = function() {
     document.getElementById('contribution-modal').style.display = 'none';
   };
+
+  window.unifyContributions = async function() {
+    const btn = document.getElementById('btn-unify');
+    if (!btn) return;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⚡ Unifying…';
+    try {
+      const res = await analyses.unify(sessionId);
+      if (!res) return;
+      showToast('✓ Unified AS-IS generated');
+      setTimeout(() => window.location.reload(), 800);
+    } catch (e) {
+      alert('Error unifying contributions: ' + e.message);
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  };
+
+  function showToast(message) {
+    let toast = document.getElementById('workspace-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'workspace-toast';
+      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:300;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.7rem 1.1rem;font-size:0.85rem;color:var(--text);box-shadow:0 12px 30px rgba(0,0,0,0.35);transition:opacity 0.25s;';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+  }
 
   // ── Raw Input Modal ───────────────────────────────────
   window.showRawInput = function() {

@@ -183,6 +183,32 @@ Added `get_optional_user` — returns `User | None` without raising 401 (used by
   - TEAM section in left panel (consultors only): collaborator list + invite modal
   - Collaborador view (when `business_role === "colaborador"`): hides HITL banners, BPMN/metrics buttons; shows guided chat header with initial greeting; "Validate and Submit" button that calls complete endpoint
 
+## Sprint 5 additions — Collaborative AS-IS
+
+### Colaborador chat mode (`agent/chat_agent.py`)
+`POST /chat` switches prompt based on `current_user.business_role`:
+- `consultor` → existing `SYSTEM_PROMPT_TEMPLATE` (post-analysis Q&A)
+- `colaborador` → `COLABORADOR_SYSTEM_PROMPT` (process elicitation: asks about activities, durations, tools, interactions, pain points, ideas)
+
+The colaborador prompt receives `process_name` looked up from the analysis. `contexto_analisis` is allowed to be `{}` for colaboradores. Session IDs for collaborator chats follow `{analysis_id}_{user_id}_collab`, set by `docs/workspace.html` when the colaborador opens the workspace.
+
+### ProcessCollaborator additions (`storage/models.py`)
+- `session_id: str | None` — chat session for this collaborator (`{analysis_id}_{user_id}_collab`)
+- `contribution_summary: text | null` — concatenated `Colaborador: …` / `Asistente: …` transcript persisted when they mark their work complete
+
+Alembic migration: `f141c5557abc_sprint5_collaborator_chat`.
+
+### New endpoints (`api/main.py`)
+- `GET /analyses/{id}/collaborators/{user_id}/contribution` — owner-only; returns `{collaborator: {name, email, status, completed_at}, chat_history: [...], contribution_summary}`
+- `POST /analyses/{id}/unify` — owner-only; requires ≥1 collaborator with `status="completed"`; calls the LLM with `UNIFY_SYSTEM_PROMPT` to synthesize a single AS-IS from all collaborator chats; writes the result into `Analysis.result_json["asis_process"]` and rebuilds `raw_input` from the joined chats; returns `{unified_asis, message}`. Returns 500 if the LLM fails or produces invalid JSON.
+
+### Welcome notification
+`POST /invitations/{token}/accept` now creates a `Notification(type="welcome")` only for the new-user branch (existing-user acceptance does not).
+
+### Frontend (`docs/workspace.html`)
+- TEAM section shows a "View" button next to each `status="completed"` collaborator → opens contribution modal with chat bubbles + completion metadata.
+- Below the collaborators list, "⚡ Unify All Contributions" button (`.btn-unify`) appears only when at least one collaborator is completed. Calls `analyses.unify(sessionId)` and reloads the workspace on success.
+
 ## Known limitations
 
 - Sessions are in-process memory; restarting the server loses **active** (non-completed) sessions. Completed sessions are recovered from SQLite automatically.

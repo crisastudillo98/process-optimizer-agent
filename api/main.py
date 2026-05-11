@@ -1500,6 +1500,7 @@ async def accept_process_invitation(
             raise HTTPException(status_code=410, detail="Invitation has expired.")
 
         # Resolve which user accepts
+        is_new_user = False
         if body.existing and current_user:
             user = current_user
         else:
@@ -1528,6 +1529,7 @@ async def accept_process_invitation(
             )
             db.add(user)
             db.flush()
+            is_new_user = True
 
         # Create collaborator record (active — they accepted)
         existing_collab = db.query(ProcessCollaborator).filter(
@@ -1544,6 +1546,20 @@ async def accept_process_invitation(
             db.add(collab)
         else:
             existing_collab.status = "active"
+
+        # Welcome notification for new colaboradores joining via external invite
+        if is_new_user:
+            inv_analysis = db.query(db_models.Analysis).filter(
+                db_models.Analysis.id == invitation.analysis_id,
+            ).first()
+            process_name = inv_analysis.process_name if inv_analysis else "un proceso"
+            db.add(Notification(
+                user_id=user.id,
+                type="welcome",
+                title="Bienvenido a ProcessOptix",
+                message=f"Has sido agregado como colaborador en {process_name}",
+                data=json.dumps({"analysis_id": invitation.analysis_id}),
+            ))
 
         invitation.status = "accepted"
         db.commit()

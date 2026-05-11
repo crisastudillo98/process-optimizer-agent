@@ -403,6 +403,38 @@
       document.getElementById('chat-send-btn').disabled = !this.value.trim() || !window.__lastReport;
     });
 
+    // Colaboradores don't own the session → skip /sessions/{id}/status polling (would 403).
+    // Load chat history with the collab session id ({analysis_id}_{user_id}_collab).
+    if (__currentUser?.business_role === 'colaborador') {
+      const collabSid = `${sessionId}_${__currentUser.id}_collab`;
+      window.__lastReport = {}; // Enable chat input — colaboradores don't need analysis context
+      document.getElementById('chat-send-btn').disabled = !document.getElementById('chat-input').value.trim();
+      document.getElementById('ws-status-label').textContent = '';
+      try {
+        const data = await chat.history(collabSid);
+        if (data?.mensajes?.length) {
+          const msgs = document.getElementById('chat-messages');
+          document.getElementById('chat-empty').style.display = 'none';
+          document.getElementById('suggestion-chips').style.display = 'none';
+          const fragment = document.createDocumentFragment();
+          const divider = document.createElement('div');
+          divider.style.cssText = 'text-align:center;font-size:0.72rem;color:var(--muted);padding:0.5rem 0;margin:0.5rem 0;border-bottom:1px solid var(--border);';
+          divider.textContent = '— Previous conversation —';
+          fragment.appendChild(divider);
+          for (const msg of data.mensajes) {
+            const role = msg.role === 'user' ? 'user' : 'agent';
+            const div = document.createElement('div');
+            div.className = 'chat-bubble ' + role;
+            div.innerHTML = role === 'agent' ? renderMarkdown(msg.content) : escHtml(msg.content);
+            fragment.appendChild(div);
+          }
+          msgs.insertBefore(fragment, msgs.firstChild);
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+      } catch (_) {}
+      return;
+    }
+
     // Check status once — if already complete skip polling and load immediately
     try {
       const statusData = await sessions.status(sessionId);
@@ -886,7 +918,10 @@
     const loader = appendLoader();
 
     try {
-      const res = await chat.send(sessionId, msg, window.__lastReport);
+      const isColab = __currentUser?.business_role === 'colaborador';
+      const sid     = isColab ? `${sessionId}_${__currentUser.id}_collab` : sessionId;
+      const ctx     = isColab ? {} : window.__lastReport;
+      const res     = await chat.send(sid, msg, ctx);
       loader.remove();
       if (res) {
         appendBubble(res.respuesta, 'agent');

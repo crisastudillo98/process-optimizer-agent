@@ -1556,7 +1556,7 @@ async def accept_process_invitation(
             db.add(Notification(
                 user_id=user.id,
                 type="welcome",
-                title="Bienvenido a ProcessOptix",
+                title="Bienvenido a Processa AI",
                 message=f"Has sido agregado como colaborador en {process_name}",
                 data=json.dumps({"analysis_id": invitation.analysis_id}),
             ))

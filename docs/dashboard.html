@@ -182,6 +182,7 @@
   </button>
 </div>
 
+<script src="js/onboarding.js"></script>
 <script type="module">
   import { requireAuth, auth, analyses, sessions, notifications } from './js/api.js';
   import { setUser, setProcesses, state } from './js/state.js';
@@ -347,6 +348,12 @@
       allProcesses = data.analyses || [];
       setProcesses(allProcesses);
       renderGrid(allProcesses);
+      const isNewUser = allProcesses.length === 0;
+      if (isNewUser) {
+        setTimeout(() => {
+          startOnboarding(__currentUser?.business_role);
+        }, 800);
+      }
     } catch (e) {
       document.getElementById('process-grid').innerHTML =
         '<div class="empty-state"><h3>Failed to load processes</h3><p>' + (e.message || '') + '</p></div>';

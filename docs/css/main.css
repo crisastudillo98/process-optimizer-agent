@@ -1862,3 +1862,111 @@ tbody tr:hover { background: var(--surface-2); }
   .panel-left, .panel-right { display: none; }
   .metrics-grid { grid-template-columns: 1fr; }
 }
+
+/* =============================================
+   ONBOARDING TOUR
+============================================= */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.onboarding-box {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 1.25rem;
+  width: 300px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.onboarding-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.onboarding-step {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.onboarding-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 0.25rem;
+}
+
+.onboarding-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.5rem 0;
+}
+
+.onboarding-text {
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0 0 1rem 0;
+}
+
+.onboarding-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-onboarding-skip {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.35rem;
+}
+
+.btn-onboarding-next {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.onboarding-dots .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-med);
+  transition: background var(--transition);
+}
+
+.onboarding-dots .dot.active {
+  background: var(--accent);
+}
+
+.onboarding-highlight {
+  position: relative;
+  z-index: 10000;
+  box-shadow: 0 0 0 3px var(--accent),
+              0 0 0 6px rgba(16,185,129,0.2) !important;
+  border-radius: 8px;
+}

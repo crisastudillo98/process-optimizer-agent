@@ -209,6 +209,40 @@ Alembic migration: `f141c5557abc_sprint5_collaborator_chat`.
 - TEAM section shows a "View" button next to each `status="completed"` collaborator → opens contribution modal with chat bubbles + completion metadata.
 - Below the collaborators list, "⚡ Unify All Contributions" button (`.btn-unify`) appears only when at least one collaborator is completed. Calls `analyses.unify(sessionId)` and reloads the workspace on success.
 
+## Sprint 6 additions — UI/UX + Branding
+
+### Brand identity
+- **Product name:** Processa AI (replaces ProcessOptix / ProcessOptimizer everywhere)
+- **Tagline:** "Optimize your processes with collaborative AI"
+- **Logo:** Connected-node SVG — three circles (left r=6, center r=9, right r=6) linked by two lines, all teal (`#00d4aa`). Inline SVG, no external file.
+
+### Dark/Light theme toggle
+- All pages load with theme from `localStorage.getItem('theme') || 'dark'` via an inline `<script>` in `<head>` (no flicker).
+- `[data-theme="light"]` block in `docs/css/main.css` overrides `--bg`, `--sidebar-bg`, `--surface`, `--surface-2`, `--border`, `--border-med`, `--text`, `--muted`, `--very-muted`.
+- Theme toggle button (`.theme-toggle-btn`) appears in every page topbar. Dark mode shows ☀️, light mode shows 🌙.
+- `window.toggleTheme()` function defined in each page's module script.
+
+### Personalized greeting (dashboard)
+- After `GET /auth/me`, the dashboard title becomes a time-of-day greeting: "Buenos días/tardes/noches/Hola, {first_name} 👋".
+- First name extracted from `user.full_name.split(' ')[0]`.
+- Subtitle is role-specific: consultor → "Gestiona y optimiza…", colaborador → "Estos son los procesos en los que colaboras".
+
+### Dashboard by role
+**Consultor view** (unchanged UX, enhanced cards):
+- Shows "+ New Process" and "Upload Sources" buttons.
+- Shows "My Processes / Shared with me" tab switcher.
+- Cards show collaborator count (`👥 N colaboradores`) when `collaborator_count > 0`.
+
+**Colaborador view** (role = `colaborador`):
+- Hides "+ New Process", "Upload Sources" buttons, and tab switcher.
+- Shows `collab-banner` at top: "📋 Tienes X proceso(s) pendientes de tu contribución".
+- Cards show contribution status badge: ⏳ Pendiente / 🔄 En progreso / ✅ Completado and owner name ("por {owner_name}").
+- "Abrir Workspace" instead of "Open Workspace".
+
+### CSS additions (`docs/css/main.css`)
+- `.collab-banner` — teal-tinted info bar for colaboradores
+- `.theme-toggle-btn` — small bordered button for theme switching
+
 ## Known limitations
 
 - Sessions are in-process memory; restarting the server loses **active** (non-completed) sessions. Completed sessions are recovered from SQLite automatically.

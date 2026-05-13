@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ProcessOptimizer — Accept Invitation</title>
+  <title>Processa AI — Accept Invitation</title>
   <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
+  <script>(function(){ document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark'); })();</script>
   <style>
     body { display: block; overflow: auto; }
     .auth-wrapper { overflow: auto; min-height: 100vh; }
+    .auth-right { position: relative; }
     .invite-context {
       background: var(--surface-2);
       border: 1px solid var(--border);
@@ -49,15 +51,15 @@
 <div class="auth-wrapper">
   <!-- Left brand panel -->
   <div class="auth-left">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:2.5rem;">
-      <svg width="40" height="40" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#00d4aa" stroke-width="1.5" fill="none" opacity="0.5"/>
-        <path d="M16 8L22 14L16 20L10 14L16 8Z" fill="#00d4aa" fill-opacity="0.15" stroke="#00d4aa" stroke-width="1.5"/>
-        <circle cx="16" cy="14" r="2.5" fill="#00d4aa"/>
-        <path d="M16 17.5V21" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M14.5 19.5L16 21L17.5 19.5" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:2.5rem;">
+      <svg width="44" height="18" viewBox="0 0 60 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="15" y1="12" x2="21" y2="12" stroke="#00d4aa" stroke-width="2.5"/>
+        <line x1="39" y1="12" x2="45" y2="12" stroke="#00d4aa" stroke-width="2.5"/>
+        <circle cx="9" cy="12" r="6" fill="#00d4aa" fill-opacity="0.75"/>
+        <circle cx="30" cy="12" r="9" fill="#00d4aa"/>
+        <circle cx="51" cy="12" r="6" fill="#00d4aa" fill-opacity="0.75"/>
       </svg>
-      <span class="logo-text" style="font-size:1.3rem;">Process<span>Optix</span> <span style="color:var(--muted);font-size:0.75rem;font-weight:500;">AI</span></span>
+      <span class="logo-text" style="font-size:1.3rem;">Processa <span>AI</span></span>
     </div>
 
     <h1 style="font-size:2rem;font-weight:800;letter-spacing:-0.04em;margin-bottom:1rem;line-height:1.2;">
@@ -86,6 +88,9 @@
 
   <!-- Right auth panel -->
   <div class="auth-right">
+    <div style="position:absolute;top:1.25rem;right:1.25rem;">
+      <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">☀️</button>
+    </div>
     <div class="auth-card">
       <div class="error-msg" id="error-msg"></div>
 
@@ -147,6 +152,20 @@
 
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
+
+  // ── Theme ─────────────────────────────────────────────
+  function updateThemeBtn() {
+    const t = document.documentElement.getAttribute('data-theme');
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+  }
+  window.toggleTheme = function() {
+    const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    updateThemeBtn();
+  };
+  updateThemeBtn();
 
   function showError(msg) {
     const el = document.getElementById('error-msg');

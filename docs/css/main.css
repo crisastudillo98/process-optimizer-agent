@@ -26,6 +26,50 @@
 }
 
 /* =============================================
+   LIGHT THEME OVERRIDES
+============================================= */
+[data-theme="light"] {
+  --bg:           #f8fafc;
+  --sidebar-bg:   #f1f5f9;
+  --surface:      #ffffff;
+  --surface-2:    #f1f5f9;
+  --border:       rgba(0,0,0,0.08);
+  --border-med:   rgba(0,0,0,0.14);
+  --text:         #1e293b;
+  --muted:        #64748b;
+  --very-muted:   #94a3b8;
+  --primary-dim:  rgba(0,212,170,0.10);
+}
+
+/* Theme toggle button */
+.theme-toggle-btn {
+  background: none;
+  border: 1px solid var(--border-med);
+  border-radius: 6px;
+  color: var(--muted);
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: border-color var(--transition), color var(--transition);
+}
+.theme-toggle-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Collab banner */
+.collab-banner {
+  background: rgba(0,212,170,0.08);
+  border: 1px solid rgba(0,212,170,0.25);
+  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+/* =============================================
    RESET & BASE
 ============================================= */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

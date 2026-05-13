@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ProcessOptimizer — Dashboard</title>
+  <title>Processa AI — Dashboard</title>
   <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
   <style>
@@ -11,20 +11,21 @@
     #main { overflow-y: auto; padding: 0; }
     .main-content { min-height: calc(100vh - 60px); }
   </style>
+  <script>(function(){ document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark'); })();</script>
 </head>
 <body>
 
 <!-- Sidebar -->
 <aside id="sidebar" role="navigation">
   <div class="sidebar-logo">
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#00d4aa" stroke-width="1.5" fill="none" opacity="0.5"/>
-      <path d="M16 8L22 14L16 20L10 14L16 8Z" fill="#00d4aa" fill-opacity="0.15" stroke="#00d4aa" stroke-width="1.5"/>
-      <circle cx="16" cy="14" r="2.5" fill="#00d4aa"/>
-      <path d="M16 17.5V21" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
-      <path d="M14.5 19.5L16 21L17.5 19.5" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <svg width="32" height="13" viewBox="0 0 60 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="15" y1="12" x2="21" y2="12" stroke="#00d4aa" stroke-width="2.5"/>
+      <line x1="39" y1="12" x2="45" y2="12" stroke="#00d4aa" stroke-width="2.5"/>
+      <circle cx="9" cy="12" r="6" fill="#00d4aa" fill-opacity="0.75"/>
+      <circle cx="30" cy="12" r="9" fill="#00d4aa"/>
+      <circle cx="51" cy="12" r="6" fill="#00d4aa" fill-opacity="0.75"/>
     </svg>
-    <span class="logo-text">Process<span>Optix</span></span>
+    <span class="logo-text">Processa <span>AI</span></span>
   </div>
 
   <nav class="sidebar-nav">
@@ -68,13 +69,20 @@
 <!-- Main content -->
 <main id="main">
   <div class="main-content">
+    <!-- Collab banner (shown for colaboradores) -->
+    <div class="collab-banner" id="collab-banner" style="display:none;margin:1rem 1.5rem 0;">
+      <span>📋 Tienes <strong id="pending-count">0</strong> proceso(s) pendientes de tu contribución</span>
+    </div>
+
     <!-- Top bar -->
     <div class="dashboard-topbar">
       <div>
-        <div class="page-title" style="margin-bottom:0.15rem;">Process Workspaces</div>
-        <div style="font-size:0.85rem;color:var(--muted);">Manage and optimize your business processes</div>
+        <div class="page-title" style="margin-bottom:0.15rem;" id="greeting-title">Process Workspaces</div>
+        <div style="font-size:0.85rem;color:var(--muted);" id="greeting-subtitle">Manage and optimize your business processes</div>
       </div>
       <div class="dashboard-topbar-actions">
+        <!-- Theme toggle -->
+        <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">☀️</button>
         <!-- Notification Bell -->
         <div style="position:relative;" id="notif-bell-wrapper">
           <button id="notif-bell" onclick="toggleNotifDropdown()" title="Notifications"
@@ -94,16 +102,16 @@
             <div id="notif-list" style="max-height:320px;overflow-y:auto;"></div>
           </div>
         </div>
-        <button class="btn-secondary" onclick="document.getElementById('file-upload-input').click()">
+        <button class="btn-secondary" id="btn-upload-sources" onclick="document.getElementById('file-upload-input').click()">
           Upload Sources
         </button>
         <input type="file" id="file-upload-input" style="display:none" accept=".pdf,.docx,.xlsx,.txt" onchange="handleFileUpload(this.files[0])">
-        <button class="btn-new" onclick="openDrawer()">+ New Process</button>
+        <button class="btn-new" id="btn-new-process" onclick="openDrawer()">+ New Process</button>
       </div>
     </div>
 
-    <!-- Tab switcher -->
-    <div class="tab-switcher">
+    <!-- Tab switcher (hidden for colaboradores) -->
+    <div class="tab-switcher" id="tab-switcher-row">
       <div class="tab-switcher-item active" id="tab-mine" onclick="switchTab('mine')">My Processes</div>
       <div class="tab-switcher-item" id="tab-shared" onclick="switchTab('shared')">Shared with me</div>
     </div>
@@ -179,6 +187,20 @@
   import { setUser, setProcesses, state } from './js/state.js';
 
   if (!requireAuth()) throw new Error('Not authenticated');
+
+  // ── Theme ────────────────────────────────────────────────────────────────
+  function updateThemeBtn() {
+    const t = document.documentElement.getAttribute('data-theme');
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+  }
+  window.toggleTheme = function() {
+    const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    updateThemeBtn();
+  };
+  updateThemeBtn();
 
   // ── Notification Bell ──────────────────────────────────────────────────────
   let notifPollInterval = null;
@@ -272,17 +294,44 @@
   let allProcesses = [];
   let selectedFile = null;
   let currentTab = 'text';
+  let __currentUser = null;
+
+  function getGreeting(firstName) {
+    const h = new Date().getHours();
+    if (h >= 6 && h < 12)  return `Buenos días, ${firstName} 👋`;
+    if (h >= 12 && h < 18) return `Buenas tardes, ${firstName} 👋`;
+    if (h >= 18)           return `Buenas noches, ${firstName} 👋`;
+    return `Hola, ${firstName} 👋`;
+  }
+
+  function applyRoleUI(user) {
+    const isColaborador = (user.business_role || '').toLowerCase() === 'colaborador';
+    const firstName = (user.full_name || '').split(' ')[0] || user.full_name;
+
+    document.getElementById('greeting-title').textContent = getGreeting(firstName);
+    document.getElementById('greeting-subtitle').textContent = isColaborador
+      ? 'Estos son los procesos en los que colaboras'
+      : 'Gestiona y optimiza los procesos de tu organización';
+
+    if (isColaborador) {
+      document.getElementById('btn-new-process').style.display = 'none';
+      document.getElementById('btn-upload-sources').style.display = 'none';
+      document.getElementById('tab-switcher-row').style.display = 'none';
+    }
+  }
 
   // Load user and processes
   async function init() {
     try {
       const user = await auth.me();
       if (!user) return;
+      __currentUser = user;
       setUser(user);
       const initials = user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
       document.getElementById('user-avatar').textContent = initials;
       document.getElementById('user-name').textContent = user.full_name;
       document.getElementById('user-email').textContent = user.email;
+      applyRoleUI(user);
     } catch (e) {
       console.error('Failed to load user:', e);
     }
@@ -306,39 +355,74 @@
 
   function renderGrid(items) {
     const grid = document.getElementById('process-grid');
+    const isColaborador = (__currentUser?.business_role || '').toLowerCase() === 'colaborador';
+
     if (items.length === 0) {
+      const emptyMsg = isColaborador
+        ? '<h3>Sin procesos asignados</h3><p>Aún no tienes procesos para colaborar.</p>'
+        : '<h3>No processes yet</h3><p style="margin-bottom:1.5rem;">Analyze your first process to get started.</p><button class="btn-new" onclick="openDrawer()">+ New Process</button>';
       grid.innerHTML = `
         <div class="empty-state">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="color:var(--very-muted);margin-bottom:1rem;">
             <path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <h3>No processes yet</h3>
-          <p style="margin-bottom:1.5rem;">Analyze your first process to get started.</p>
-          <button class="btn-new" onclick="openDrawer()">+ New Process</button>
+          ${emptyMsg}
         </div>`;
       return;
     }
 
-    grid.innerHTML = items.map(p => {
-      const statusClass = p.status === 'completed' ? 'completed' : p.status === 'error' ? 'error' : 'running';
-      const statusLabel = p.status === 'completed' ? 'Completed' : p.status === 'error' ? 'Error' : 'Running';
-      const scoreHtml = p.score != null ? `<div class="card-score">${Math.round(p.score)}%</div>` : '';
-      const date = p.created_at ? new Date(p.created_at).toLocaleDateString() : '';
-      const name = p.process_name || p.id.slice(0, 8);
-      return `
-        <div class="process-card" onclick="openWorkspace('${p.id}')">
-          <div class="card-header">
-            <h3>${escHtml(name)}</h3>
-            <span class="status-pill ${statusClass}">${statusLabel}</span>
-          </div>
-          <div class="card-meta">${date}</div>
-          ${scoreHtml}
-          <div class="card-footer">
-            <span style="font-size:0.78rem;color:var(--muted);">ID: ${p.id.slice(0, 8)}…</span>
-            <button class="btn-open" onclick="event.stopPropagation();openWorkspace('${p.id}')">Open Workspace</button>
-          </div>
-        </div>`;
-    }).join('');
+    if (isColaborador) {
+      // Show pending count banner
+      const pendingCount = items.filter(p => p.collaborator_status === 'pending' || p.collaborator_status === 'active').length;
+      document.getElementById('pending-count').textContent = pendingCount;
+      document.getElementById('collab-banner').style.display = pendingCount > 0 ? 'block' : 'none';
+
+      grid.innerHTML = items.map(p => {
+        const name = p.process_name || p.id.slice(0, 8);
+        const st = p.collaborator_status || 'pending';
+        const statusBadge = st === 'completed'
+          ? '<span class="status-pill completed">✅ Completado</span>'
+          : st === 'active'
+            ? '<span class="status-pill running">🔄 En progreso</span>'
+            : '<span class="status-pill" style="background:rgba(245,158,11,0.15);color:#f59e0b;">⏳ Pendiente</span>';
+        const ownerLine = p.owner_name ? `<div class="card-meta">por ${escHtml(p.owner_name)}</div>` : '';
+        return `
+          <div class="process-card" onclick="openWorkspace('${p.id}')">
+            <div class="card-header">
+              <h3>${escHtml(name)}</h3>
+              ${statusBadge}
+            </div>
+            ${ownerLine}
+            <div class="card-footer">
+              <span></span>
+              <button class="btn-open" onclick="event.stopPropagation();openWorkspace('${p.id}')">Abrir Workspace</button>
+            </div>
+          </div>`;
+      }).join('');
+    } else {
+      grid.innerHTML = items.map(p => {
+        const statusClass = p.status === 'completed' ? 'completed' : p.status === 'error' ? 'error' : 'running';
+        const statusLabel = p.status === 'completed' ? 'Completed' : p.status === 'error' ? 'Error' : 'Running';
+        const scoreHtml = p.score != null ? `<div class="card-score">${Math.round(p.score)}%</div>` : '';
+        const date = p.created_at ? new Date(p.created_at).toLocaleDateString() : '';
+        const name = p.process_name || p.id.slice(0, 8);
+        const collabCount = p.collaborator_count;
+        const collabHtml = collabCount > 0 ? `<span style="font-size:0.78rem;color:var(--muted);">👥 ${collabCount} colaborador${collabCount !== 1 ? 'es' : ''}</span>` : '';
+        return `
+          <div class="process-card" onclick="openWorkspace('${p.id}')">
+            <div class="card-header">
+              <h3>${escHtml(name)}</h3>
+              <span class="status-pill ${statusClass}">${statusLabel}</span>
+            </div>
+            <div class="card-meta">${date}</div>
+            ${scoreHtml}
+            <div class="card-footer">
+              ${collabHtml || `<span style="font-size:0.78rem;color:var(--muted);">ID: ${p.id.slice(0, 8)}…</span>`}
+              <button class="btn-open" onclick="event.stopPropagation();openWorkspace('${p.id}')">Open Workspace</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
   }
 
   window.filterCards = function(q) {

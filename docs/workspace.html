@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ProcessOptimizer — Workspace</title>
+  <title>Processa AI — Workspace</title>
   <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
   <script src="https://unpkg.com/bpmn-js/dist/bpmn-navigated-viewer.production.min.js"></script>
+  <script>(function(){ document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark'); })();</script>
   <style>
     body { display: flex; flex-direction: column; overflow: hidden; }
     #workspace-root { display: flex; flex-direction: column; flex: 1; height: 100vh; overflow: hidden; }
@@ -73,6 +74,7 @@
           <div id="notif-list" style="max-height:300px;overflow-y:auto;"></div>
         </div>
       </div>
+      <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">☀️</button>
       <div style="font-size:0.78rem;color:var(--muted);" id="ws-user-name"></div>
     </div>
   </div>
@@ -278,6 +280,20 @@
   const sessionId = localStorage.getItem('active_session');
   if (!sessionId) { window.location.href = 'dashboard.html'; }
 
+  // ── Theme ─────────────────────────────────────────────
+  function updateThemeBtn() {
+    const t = document.documentElement.getAttribute('data-theme');
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+  }
+  window.toggleTheme = function() {
+    const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    updateThemeBtn();
+  };
+  updateThemeBtn();
+
   let bpmnViewer = null;
   let bpmnXml = null;
   let bpmnAsisXml = null;
@@ -396,7 +412,7 @@
     const earlyName = localStorage.getItem('active_process_name') || sessionId.slice(0, 8);
     document.getElementById('ws-process-name').textContent = earlyName;
     document.getElementById('left-process-name').textContent = earlyName;
-    document.title = earlyName + ' — ProcessOptix AI';
+    document.title = earlyName + ' — Processa AI';
 
     // Enable send button when there's text
     document.getElementById('chat-input').addEventListener('input', function() {
@@ -442,7 +458,7 @@
         if (statusData.process_name) {
           document.getElementById('ws-process-name').textContent = statusData.process_name;
           document.getElementById('left-process-name').textContent = statusData.process_name;
-          document.title = statusData.process_name + ' — ProcessOptix AI';
+          document.title = statusData.process_name + ' — Processa AI';
           localStorage.setItem('active_process_name', statusData.process_name);
         }
         document.getElementById('ws-status-label').textContent = 'Analysis complete';
@@ -479,7 +495,7 @@
         || localStorage.getItem('active_process_name') || sessionId.slice(0, 8);
       document.getElementById('ws-process-name').textContent = processName;
       document.getElementById('left-process-name').textContent = processName;
-      document.title = processName + ' — ProcessOptix AI';
+      document.title = processName + ' — Processa AI';
 
       document.getElementById('chat-send-btn').disabled =
         !document.getElementById('chat-input').value.trim();
@@ -589,7 +605,7 @@
         || localStorage.getItem('active_process_name') || sessionId.slice(0, 8);
       document.getElementById('ws-process-name').textContent = processName;
       document.getElementById('left-process-name').textContent = processName;
-      document.title = processName + ' — ProcessOptix AI';
+      document.title = processName + ' — Processa AI';
 
       // Enable chat
       document.getElementById('chat-send-btn').disabled = !document.getElementById('chat-input').value.trim();

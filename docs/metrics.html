@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ProcessOptimizer — Full Metrics</title>
+  <title>Processa AI — Full Metrics</title>
   <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
+  <script>(function(){ document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark'); })();</script>
   <style>
     body { overflow: hidden; }
     #main { overflow-y: auto; padding: 2rem; }
@@ -113,14 +114,14 @@
 <!-- Sidebar -->
 <aside id="sidebar" role="navigation">
   <div class="sidebar-logo">
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#00d4aa" stroke-width="1.5" fill="none" opacity="0.5"/>
-      <path d="M16 8L22 14L16 20L10 14L16 8Z" fill="#00d4aa" fill-opacity="0.15" stroke="#00d4aa" stroke-width="1.5"/>
-      <circle cx="16" cy="14" r="2.5" fill="#00d4aa"/>
-      <path d="M16 17.5V21" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
-      <path d="M14.5 19.5L16 21L17.5 19.5" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <svg width="32" height="13" viewBox="0 0 60 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="15" y1="12" x2="21" y2="12" stroke="#00d4aa" stroke-width="2.5"/>
+      <line x1="39" y1="12" x2="45" y2="12" stroke="#00d4aa" stroke-width="2.5"/>
+      <circle cx="9" cy="12" r="6" fill="#00d4aa" fill-opacity="0.75"/>
+      <circle cx="30" cy="12" r="9" fill="#00d4aa"/>
+      <circle cx="51" cy="12" r="6" fill="#00d4aa" fill-opacity="0.75"/>
     </svg>
-    <span class="logo-text">Process<span>Optix</span></span>
+    <span class="logo-text">Processa <span>AI</span></span>
   </div>
 
   <nav class="sidebar-nav">
@@ -176,10 +177,13 @@
       <div class="page-title" id="met-process-name" style="margin-bottom:0.2rem;">Executive Report</div>
       <div style="font-size:0.82rem;color:var(--muted);" id="met-meta">—</div>
     </div>
-    <button class="btn-secondary" disabled title="Export to PDF — Coming in Sprint 4"
-      style="font-size:0.8rem;padding:0.4rem 1rem;opacity:0.5;cursor:not-allowed;">
-      ↓ Export PDF
-    </button>
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">☀️</button>
+      <button class="btn-secondary" disabled title="Export to PDF — Coming in Sprint 4"
+        style="font-size:0.8rem;padding:0.4rem 1rem;opacity:0.5;cursor:not-allowed;">
+        ↓ Export PDF
+      </button>
+    </div>
   </div>
 
   <!-- No session state -->
@@ -441,6 +445,20 @@
 
   window.handleLogout = function() { auth.logout(); };
 
+  // ── Theme ─────────────────────────────────────────────
+  function updateThemeBtn() {
+    const t = document.documentElement.getAttribute('data-theme');
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+  }
+  window.toggleTheme = function() {
+    const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    updateThemeBtn();
+  };
+  updateThemeBtn();
+
   const COST_PER_HOUR_USD = 25;
 
   const toolRecommendations = {
@@ -601,7 +619,7 @@
     // Page header
     const processName = asis.name || report.process_name || localStorage.getItem('active_process_name') || 'Process';
     document.getElementById('met-process-name').textContent = processName;
-    document.title = processName + ' — Metrics | ProcessOptix AI';
+    document.title = processName + ' — Metrics | Processa AI';
     const orgName = user?.tenant_name || '';
     const dateStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
     document.getElementById('met-meta').textContent = [orgName, dateStr].filter(Boolean).join(' · ');

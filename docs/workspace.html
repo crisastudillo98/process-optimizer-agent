@@ -175,6 +175,29 @@
           ⚡ Unify All Contributions
         </button>
       </div>
+
+      <!-- Sprint 8 — Validation section (replaces yellow HITL banners) -->
+      <div id="validation-section" class="validation-section" style="display:none;">
+        <div class="panel-section-title">VALIDACIÓN</div>
+
+        <div id="asis-validation" style="display:none;margin-top:0.6rem;">
+          <div class="validation-label">AS-IS Consolidado</div>
+          <div class="validation-desc">Revisa el AS-IS en el chat y decide si está listo para optimizar.</div>
+          <div class="validation-actions">
+            <button class="btn-validate-approve" onclick="approveASIS()">✓ Aprobar AS-IS</button>
+            <button class="btn-validate-reject" onclick="rejectASIS()">✗ Solicitar cambios</button>
+          </div>
+        </div>
+
+        <div id="tobe-validation" style="display:none;margin-top:0.6rem;">
+          <div class="validation-label">TO-BE Optimizado</div>
+          <div class="validation-desc">Revisa la propuesta TO-BE en el chat. Aprobar generará el reporte final.</div>
+          <div class="validation-actions">
+            <button class="btn-validate-approve" onclick="approveTOBE()">✓ Aprobar TO-BE</button>
+            <button class="btn-validate-reject" onclick="rejectTOBE()">✗ Solicitar cambios</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- CENTER PANEL -->
@@ -272,7 +295,7 @@
 </div>
 
 <script type="module">
-  import { requireAuth, auth, sessions, chat, sources, refinement, apiBlob, notifications, collaboration, analyses } from './js/api.js';
+  import { requireAuth, auth, sessions, processes, chat, sources, refinement, apiBlob, notifications, collaboration, analyses } from './js/api.js';
   import { setUser, setReport, state } from './js/state.js';
 
   if (!requireAuth()) throw new Error('Not authenticated');
@@ -546,7 +569,7 @@
     }
   }
 
-  // ── Polling ───────────────────────────────────────────
+  // ── Polling (Sprint 8 phase-aware) ────────────────────
   async function pollStatus() {
     try {
       const status = await sessions.status(sessionId);
@@ -557,40 +580,105 @@
         document.getElementById('left-process-name').textContent = status.process_name;
       }
 
-      // Check HITL flags — AS-IS takes priority
-      if (status.hitl_asis_required && !status.hitl_asis_approved && !asisBannerDismissed) {
-        __hitlMode = 'asis';
-        await showAsisReviewBanner();
-        document.getElementById('ws-status-label').textContent = 'Waiting for AS-IS review…';
-        pollTimer = setTimeout(pollStatus, 5000);
+      // Sprint 8 — phase-driven flow takes priority over legacy hitl_* flags
+      const phase = status.phase;
+      if (phase) {
+        handlePhaseUpdate(phase);
+        // Final report is loaded when phase=='completed'
+        if (phase === 'completed') {
+          await loadCompletedSession();
+          return;
+        }
+        // Reload chat messages so AS-IS / TO-BE chat bubbles appear without a full refresh
+        await maybeRefreshChat();
+        pollTimer = setTimeout(pollStatus, 4000);
         return;
-      } else if (status.hitl_required && !status.hitl_approved) {
-        __hitlMode = 'tobe';
-        await showHitlBanner('Review the proposed TO-BE optimization before continuing');
-        document.getElementById('ws-status-label').textContent = 'Waiting for TO-BE approval…';
-        pollTimer = setTimeout(pollStatus, 5000);
-        return;
-      } else {
-        document.getElementById('hitl-banner').style.display = 'none';
       }
 
+      // ── Legacy (pre-Sprint 8) state-flag flow ────────────
       if (status.kpi_ok) {
         await loadCompletedSession();
         return;
       }
-
       if (status.status === 'error') {
         document.getElementById('ws-status-label').textContent = 'Analysis failed';
         return;
       }
-
-      // Keep polling
       document.getElementById('ws-status-label').textContent = 'Analyzing… ' + (status.status || '');
       pollTimer = setTimeout(pollStatus, 3000);
     } catch (e) {
       console.error('Poll error:', e);
       pollTimer = setTimeout(pollStatus, 5000);
     }
+  }
+
+  function _setValidation(which) {
+    const section = document.getElementById('validation-section');
+    const asis    = document.getElementById('asis-validation');
+    const tobe    = document.getElementById('tobe-validation');
+    section.style.display = which ? 'block' : 'none';
+    asis.style.display = which === 'asis' ? 'block' : 'none';
+    tobe.style.display = which === 'tobe' ? 'block' : 'none';
+  }
+
+  function handlePhaseUpdate(phase) {
+    const label = document.getElementById('ws-status-label');
+    switch (phase) {
+      case 'collecting':
+        label.textContent = 'Recolectando contribuciones del equipo';
+        _setValidation(null);
+        break;
+      case 'unifying':
+        label.textContent = 'Analizando contribuciones del equipo…';
+        _setValidation(null);
+        break;
+      case 'asis_hitl':
+        label.textContent = 'Esperando validación del AS-IS';
+        _setValidation('asis');
+        // Enable chat for revision comments — colaborador path skipped above
+        window.__lastReport = window.__lastReport || {};
+        document.getElementById('chat-send-btn').disabled = !document.getElementById('chat-input').value.trim();
+        break;
+      case 'optimizing':
+        label.textContent = 'Optimizando con Lean / Six Sigma / Kaizen…';
+        _setValidation(null);
+        break;
+      case 'tobe_hitl':
+        label.textContent = 'Esperando validación del TO-BE';
+        _setValidation('tobe');
+        window.__lastReport = window.__lastReport || {};
+        document.getElementById('chat-send-btn').disabled = !document.getElementById('chat-input').value.trim();
+        break;
+      case 'completed':
+        label.textContent = 'Análisis completo';
+        _setValidation(null);
+        break;
+      default:
+        _setValidation(null);
+    }
+  }
+
+  let _lastChatCount = 0;
+  async function maybeRefreshChat() {
+    try {
+      const data = await chat.history(sessionId);
+      const msgs = data?.mensajes || [];
+      if (msgs.length === _lastChatCount) return;
+      _lastChatCount = msgs.length;
+      const container = document.getElementById('chat-messages');
+      // Clear and re-render — simpler than diffing
+      container.innerHTML = '';
+      document.getElementById('chat-empty').style.display = 'none';
+      document.getElementById('suggestion-chips').style.display = 'none';
+      for (const m of msgs) {
+        const div = document.createElement('div');
+        const role = m.role === 'user' ? 'user' : 'agent';
+        div.className = 'chat-bubble ' + role;
+        div.innerHTML = role === 'agent' ? renderMarkdown(m.content) : escHtml(m.content);
+        container.appendChild(div);
+      }
+      container.scrollTop = container.scrollHeight;
+    } catch (_) {}
   }
 
   async function loadReport() {
@@ -788,6 +876,59 @@
       ).join('');
     }
 
+    // Sprint 8 — Muda/Mura/Muri + tool recommendations
+    const enr = report.enrichment;
+    if (enr) {
+      const wc = enr.waste_classification || {};
+      const mudaArr = wc.muda || [];
+      const muraArr = wc.mura || [];
+      const muriArr = wc.muri || [];
+
+      if (mudaArr.length || muraArr.length || muriArr.length) {
+        recsHtml += `<div class="panel-section-title" style="margin-top:1rem;margin-bottom:0.5rem;">CLASIFICACIÓN LEAN</div>`;
+        const block = (title, color, items, renderItem) => items.length
+          ? `<div style="margin-bottom:0.6rem;">
+              <div style="font-size:0.75rem;font-weight:600;color:${color};margin-bottom:0.25rem;">${title} (${items.length})</div>
+              ${items.map(renderItem).join('')}
+            </div>`
+          : '';
+        recsHtml += block('🗑️ Muda', '#ef4444', mudaArr, m =>
+          `<div class="rec-card" style="margin-bottom:0.35rem;">
+             <div style="font-size:0.8rem;font-weight:500;">${escHtml(m.activity_name)}</div>
+             <div style="font-size:0.72rem;color:var(--muted);">${escHtml(m.waste_type || '—')} · ${m.waste_time_min || 0} min perdidos</div>
+           </div>`
+        );
+        recsHtml += block('🌀 Mura (variabilidad)', '#f59e0b', muraArr, m =>
+          `<div class="rec-card" style="margin-bottom:0.35rem;">
+             <div style="font-size:0.8rem;font-weight:500;">${escHtml(m.activity_name)}</div>
+             <div style="font-size:0.72rem;color:var(--muted);">${m.duration_min} min vs. media ${m.avg_duration_min} min (Δ ${m.deviation_min})</div>
+           </div>`
+        );
+        recsHtml += block('🥵 Muri (sobrecarga)', '#a855f7', muriArr, m =>
+          `<div class="rec-card" style="margin-bottom:0.35rem;">
+             <div style="font-size:0.8rem;font-weight:500;">${escHtml(m.activity_name)} · ${escHtml(m.responsible)}</div>
+             <div style="font-size:0.72rem;color:var(--muted);">${escHtml(m.reason)}</div>
+           </div>`
+        );
+      }
+
+      const tools = enr.tool_recommendations || [];
+      if (tools.length) {
+        recsHtml += `<div class="panel-section-title" style="margin-top:1rem;margin-bottom:0.5rem;">HERRAMIENTAS RECOMENDADAS</div>`;
+        recsHtml += tools.map(t => `
+          <div class="rec-card" style="margin-bottom:0.4rem;">
+            <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.2rem;">
+              <span style="font-weight:600;font-size:0.82rem;">${escHtml(t.activity_name)}</span>
+              <span style="font-size:0.66rem;padding:0.1rem 0.4rem;border-radius:4px;background:rgba(0,212,170,0.15);color:var(--primary);">${escHtml(t.category)}</span>
+            </div>
+            <div style="font-size:0.74rem;color:var(--text);margin-bottom:0.15rem;">🛠️ ${(t.tools || []).map(escHtml).join(', ')}</div>
+            <div style="font-size:0.7rem;color:var(--muted);">💰 ${escHtml(t.cost_range || '—')}${t.roi_months != null ? ` · ROI ~${t.roi_months} meses` : ''}</div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-top:0.15rem;">📚 ${escHtml(t.methodology || '')}</div>
+          </div>
+        `).join('');
+      }
+    }
+
     if (!recsHtml) {
       recsHtml = '<div style="color:var(--muted);font-size:0.82rem;">No recommendations available.</div>';
     }
@@ -840,6 +981,56 @@
     } catch(_) {}
   }
 
+  // ── Sprint 8 — Validation handlers ────────────────────
+  window.approveASIS = async function() {
+    try {
+      await processes.approveAsis(sessionId);
+      _setValidation(null);
+      document.getElementById('ws-status-label').textContent = 'AS-IS aprobado — optimizando…';
+      if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+      pollStatus();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  };
+
+  window.rejectASIS = function() {
+    appendBubble(
+      'Describe en el chat qué cambios necesitas en el AS-IS. ' +
+      'El agente regenerará la propuesta con tus indicaciones.',
+      'agent'
+    );
+    const input = document.getElementById('chat-input');
+    input.focus();
+    input.placeholder = 'Describe los cambios que necesitas en el AS-IS…';
+    window.__pendingRevision = 'asis_hitl';
+  };
+
+  window.approveTOBE = async function() {
+    try {
+      await processes.approveTobe(sessionId);
+      _setValidation(null);
+      document.getElementById('ws-status-label').textContent = 'TO-BE aprobado — generando reporte…';
+      if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+      pollStatus();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  };
+
+  window.rejectTOBE = function() {
+    appendBubble(
+      'Describe en el chat qué cambios necesitas en el TO-BE. ' +
+      'El agente regenerará la optimización con tu feedback.',
+      'agent'
+    );
+    const input = document.getElementById('chat-input');
+    input.focus();
+    input.placeholder = 'Describe los cambios que necesitas en el TO-BE…';
+    window.__pendingRevision = 'tobe_hitl';
+  };
+
+  // ── Legacy HITL (kept for /analyze/text backward compat) ──────────
   window.approveHITL = async function() {
     try {
       document.getElementById('hitl-approve-btn').disabled = true;
@@ -923,6 +1114,32 @@
     const input = document.getElementById('chat-input');
     const msg = input.value.trim();
     if (!msg || !window.__lastReport) return;
+
+    // Sprint 8 — if the consultant just clicked "Solicitar cambios", route the
+    // next message through /request-revision so the agent regenerates AS-IS/TO-BE.
+    if (window.__pendingRevision) {
+      const phase = window.__pendingRevision;
+      window.__pendingRevision = null;
+      input.value = '';
+      input.style.height = 'auto';
+      input.placeholder = 'Ask about the analysis...';
+      document.getElementById('chat-send-btn').disabled = true;
+      document.getElementById('suggestion-chips').style.display = 'none';
+      document.getElementById('chat-empty').style.display = 'none';
+      appendBubble(msg, 'user');
+      try {
+        await processes.requestRevision(sessionId, phase, msg);
+        appendBubble('🔄 Regenerando el proceso con tus indicaciones…', 'agent');
+        _setValidation(null);
+        document.getElementById('ws-status-label').textContent = 'Regenerando…';
+        if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+        pollStatus();
+      } catch (e) {
+        appendBubble('Error: ' + e.message, 'agent');
+      }
+      document.getElementById('chat-send-btn').disabled = !input.value.trim();
+      return;
+    }
 
     input.value = '';
     input.style.height = 'auto';
@@ -1192,10 +1409,14 @@
     btn.disabled = true;
     btn.textContent = '⚡ Unifying…';
     try {
-      const res = await analyses.unify(sessionId);
+      // Sprint 8 — async unification via background task; poll picks up the AS-IS
+      const res = await processes.startUnification(sessionId);
       if (!res) return;
-      showToast('✓ Unified AS-IS generated');
-      setTimeout(() => window.location.reload(), 800);
+      showToast('⚡ Unificación iniciada — el AS-IS aparecerá en el chat');
+      document.getElementById('ws-status-label').textContent = 'Analizando contribuciones del equipo…';
+      btn.style.display = 'none';
+      if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+      pollStatus();
     } catch (e) {
       alert('Error unifying contributions: ' + e.message);
       btn.disabled = false;

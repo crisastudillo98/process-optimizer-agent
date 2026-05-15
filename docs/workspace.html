@@ -437,9 +437,11 @@
     document.getElementById('left-process-name').textContent = earlyName;
     document.title = earlyName + ' — Processa AI';
 
-    // Enable send button when there's text
+    // Enable send button when there's text. Revision messages don't need a
+    // __lastReport, so honor __pendingRevision as an alternate enabling signal.
     document.getElementById('chat-input').addEventListener('input', function() {
-      document.getElementById('chat-send-btn').disabled = !this.value.trim() || !window.__lastReport;
+      const ready = !!window.__lastReport || !!window.__pendingRevision;
+      document.getElementById('chat-send-btn').disabled = !this.value.trim() || !ready;
     });
 
     // Colaboradores don't own the session → skip /sessions/{id}/status polling (would 403).
@@ -1048,10 +1050,14 @@
       'El agente regenerará la propuesta con tus indicaciones.',
       'agent'
     );
+    window.__pendingRevision = 'asis_hitl';
+    // Make sure sendChat() won't bail on its !__lastReport guard, and that the
+    // send button is enabled the moment the consultant starts typing.
+    window.__lastReport = window.__lastReport || {};
     const input = document.getElementById('chat-input');
     input.focus();
     input.placeholder = 'Describe los cambios que necesitas en el AS-IS…';
-    window.__pendingRevision = 'asis_hitl';
+    document.getElementById('chat-send-btn').disabled = !input.value.trim();
   };
 
   window.approveTOBE = async function() {
@@ -1072,10 +1078,12 @@
       'El agente regenerará la optimización con tu feedback.',
       'agent'
     );
+    window.__pendingRevision = 'tobe_hitl';
+    window.__lastReport = window.__lastReport || {};
     const input = document.getElementById('chat-input');
     input.focus();
     input.placeholder = 'Describe los cambios que necesitas en el TO-BE…';
-    window.__pendingRevision = 'tobe_hitl';
+    document.getElementById('chat-send-btn').disabled = !input.value.trim();
   };
 
   // ── Legacy HITL (kept for /analyze/text backward compat) ──────────
@@ -1161,10 +1169,13 @@
   window.sendChat = async function() {
     const input = document.getElementById('chat-input');
     const msg = input.value.trim();
-    if (!msg || !window.__lastReport) return;
+    if (!msg) return;
 
     // Sprint 8 — if the consultant just clicked "Solicitar cambios", route the
     // next message through /request-revision so the agent regenerates AS-IS/TO-BE.
+    // This branch runs BEFORE the __lastReport guard below: a revision doesn't
+    // need report context, and falling through to that guard would silently
+    // drop the message and the user would see no effect from the reject button.
     if (window.__pendingRevision) {
       const phase = window.__pendingRevision;
       window.__pendingRevision = null;
@@ -1173,7 +1184,8 @@
       input.placeholder = 'Ask about the analysis...';
       document.getElementById('chat-send-btn').disabled = true;
       document.getElementById('suggestion-chips').style.display = 'none';
-      document.getElementById('chat-empty').style.display = 'none';
+      const emptyEl = document.getElementById('chat-empty');
+      if (emptyEl) emptyEl.style.display = 'none';
       appendBubble(msg, 'user');
       try {
         await processes.requestRevision(sessionId, phase, msg);
@@ -1188,6 +1200,9 @@
       document.getElementById('chat-send-btn').disabled = !input.value.trim();
       return;
     }
+
+    // Normal chat needs report context — guard placed AFTER the revision branch.
+    if (!window.__lastReport) return;
 
     input.value = '';
     input.style.height = 'auto';

@@ -486,6 +486,20 @@
         }
         document.getElementById('ws-status-label').textContent = 'Analysis complete';
         await loadCompletedSession();
+      } else if (statusData && (statusData.phase === 'asis_hitl' || statusData.phase === 'tobe_hitl')) {
+        // Sprint 8 — consultant reopened the workspace mid-validation. The AS-IS / TO-BE
+        // bubble was posted to the chat by the background task; load it explicitly so the
+        // page doesn't appear empty until the first poll tick.
+        if (statusData.process_name) {
+          document.getElementById('ws-process-name').textContent = statusData.process_name;
+          document.getElementById('left-process-name').textContent = statusData.process_name;
+          document.title = statusData.process_name + ' — Processa AI';
+          localStorage.setItem('active_process_name', statusData.process_name);
+        }
+        window.__lastReport = window.__lastReport || {};   // enable chat input
+        await loadActiveChatHistory();                      // render chat from DB
+        handlePhaseUpdate(statusData.phase);                // show validation block + status label
+        await pollStatus();                                 // keep polling for further updates
       } else {
         await pollStatus();
       }
@@ -495,6 +509,33 @@
     }
 
     loadSources();
+  }
+
+  // Sprint 8 — render the full persisted chat history for an in-flight session
+  // (used on init when phase is asis_hitl / tobe_hitl, before the first poll tick).
+  async function loadActiveChatHistory() {
+    try {
+      const data = await chat.history(sessionId);
+      const list = data?.mensajes || [];
+      _lastChatCount = list.length;
+      const container = document.getElementById('chat-messages');
+      const empty = document.getElementById('chat-empty');
+      if (empty) empty.style.display = 'none';
+      const chips = document.getElementById('suggestion-chips');
+      if (chips) chips.style.display = 'none';
+      // Replace the empty placeholder with rendered bubbles
+      container.innerHTML = '';
+      for (const m of list) {
+        const div = document.createElement('div');
+        const role = m.role === 'user' ? 'user' : 'agent';
+        div.className = 'chat-bubble ' + role;
+        div.innerHTML = role === 'agent' ? renderMarkdown(m.content) : escHtml(m.content);
+        container.appendChild(div);
+      }
+      container.scrollTop = container.scrollHeight;
+    } catch (e) {
+      console.warn('loadActiveChatHistory failed:', e);
+    }
   }
 
   // ── Load completed session ────────────────────────────
@@ -622,6 +663,7 @@
   }
 
   function handlePhaseUpdate(phase) {
+    window.__currentPhase = phase;   // surface phase so loadCollaborators can gate the unify button
     const label = document.getElementById('ws-status-label');
     switch (phase) {
       case 'collecting':
@@ -666,10 +708,14 @@
       if (msgs.length === _lastChatCount) return;
       _lastChatCount = msgs.length;
       const container = document.getElementById('chat-messages');
+      // Hide placeholder elements BEFORE clearing innerHTML — once cleared, they're gone
+      // and accessing .style would throw, silently aborting the rest of the function.
+      const empty = document.getElementById('chat-empty');
+      if (empty) empty.style.display = 'none';
+      const chips = document.getElementById('suggestion-chips');
+      if (chips) chips.style.display = 'none';
       // Clear and re-render — simpler than diffing
       container.innerHTML = '';
-      document.getElementById('chat-empty').style.display = 'none';
-      document.getElementById('suggestion-chips').style.display = 'none';
       for (const m of msgs) {
         const div = document.createElement('div');
         const role = m.role === 'user' ? 'user' : 'agent';
@@ -678,7 +724,9 @@
         container.appendChild(div);
       }
       container.scrollTop = container.scrollHeight;
-    } catch (_) {}
+    } catch (e) {
+      console.warn('maybeRefreshChat failed:', e);
+    }
   }
 
   async function loadReport() {
@@ -1351,10 +1399,14 @@
         </div>
       `).join('');
 
-      // Show "Unify Contributions" button only if at least 1 collaborator completed
+      // Show "Unify Contributions" only when we are still collecting AND at least one
+      // collaborator has finished. After unifying once (phase advances to asis_hitl /
+      // optimizing / tobe_hitl / completed) the button must stay hidden so we don't
+      // wipe the in-flight AS-IS by re-unifying.
       const anyCompleted = data.collaborators.some(c => c.status === 'completed');
+      const inCollecting = (window.__currentPhase || 'collecting') === 'collecting';
       const unifyBtn = document.getElementById('btn-unify');
-      if (unifyBtn) unifyBtn.style.display = anyCompleted ? 'block' : 'none';
+      if (unifyBtn) unifyBtn.style.display = (anyCompleted && inCollecting) ? 'block' : 'none';
     } catch(_) {}
   }
 

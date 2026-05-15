@@ -52,28 +52,103 @@ class ChatResponse(BaseModel):
 
 _chat_histories: dict[str, list[dict]] = {}
 
-COLABORADOR_SYSTEM_PROMPT = """\
-Eres un asistente experto en levantamiento de procesos.
-Tu objetivo es recopilar información detallada sobre las
-actividades que realiza este colaborador en el proceso
-"{process_name}".
+_TIME_HINTS    = (
+    "minuto", "minutos", "min ", "min.", "hora", "horas", "día", "dias", "días",
+    "segundos", "tarda", "demora", "lleva", " hr", "h ", "h.", "semana",
+)
+_TOOL_HINTS    = (
+    "excel", "sap", "outlook", "correo", "email", "salesforce", "monday", "trello",
+    "jira", "slack", "teams", "drive", "sharepoint", "google", "powerpoint",
+    "word", "tableau", "power bi", "powerbi", "sistema", "plataforma", "software",
+    "erp", "crm", "rpa", "bot ",
+)
+_PAIN_HINTS    = (
+    "problema", "demora", "lento", "error", "manual", "tedioso", "complic",
+    "duplic", "espera", "esper", "no funciona", "dificil", "difícil", "queja",
+    "doble", "frustra", "cuello de botella",
+)
+_PEOPLE_HINTS  = (
+    "jefe", "gerente", "supervisor", "director", "área", "equipo", "departamento",
+    "cliente", "proveedor", "compañero", "compañera", "rrhh", "finanzas",
+    "operaciones", "comercial", "ventas", "ti ", "soporte",
+)
 
-Guía la conversación para obtener:
-1. Actividades y tareas específicas que realiza
-2. Tiempo estimado de cada actividad
-3. Herramientas y sistemas que usa
-4. Personas con quienes interactúa
-5. Problemas o dificultades frecuentes
-6. Sugerencias de mejora que tenga
 
-Haz preguntas concretas y específicas. Cuando sientas que
-tienes información suficiente sobre todos los puntos,
-resume lo que entendiste y pregunta al colaborador si está
-de acuerdo o si hay algo que corregir.
+def _analyze_collected_info(conversation_history: list[dict]) -> dict:
+    """
+    Heuristic check of what the colaborador has already mentioned, so the next
+    LLM turn can target the gaps. Conservative — false negatives push the
+    interview to probe deeper, which is the desired behavior.
+    """
+    user_text = " ".join(
+        (m.get("content") or "").lower()
+        for m in conversation_history
+        if m.get("role") == "user"
+    )
+    if not user_text:
+        return {}
 
-Responde siempre en español. Sé amigable y empático.
-No uses jerga técnica compleja.
-"""
+    activity_count = sum(user_text.count(v) for v in (" hago", " reviso", " envío", " envio", " genero", " preparo", " valido", " apruebo", " creo", " ingreso", "luego ", "después ", "despues ", "primero ", "después de"))
+    return {
+        "activities":  activity_count >= 2,
+        "durations":   any(h in user_text for h in _TIME_HINTS),
+        "tools":       any(h in user_text for h in _TOOL_HINTS),
+        "pain_points": any(h in user_text for h in _PAIN_HINTS),
+        "people":      any(h in user_text for h in _PEOPLE_HINTS),
+    }
+
+
+def build_colaborador_prompt(
+    process_name: str,
+    department: str,
+    collaborator_name: str,
+    conversation_history: list[dict],
+) -> str:
+    """Sprint 8 — dynamic prompt adapting to what the colaborador has already said."""
+    collected = _analyze_collected_info(conversation_history)
+
+    missing: list[str] = []
+    if not collected.get("activities"):  missing.append("actividades específicas (paso a paso)")
+    if not collected.get("durations"):   missing.append("tiempos reales de cada actividad")
+    if not collected.get("tools"):       missing.append("herramientas y sistemas utilizados")
+    if not collected.get("pain_points"): missing.append("problemas, errores o demoras frecuentes")
+    if not collected.get("people"):      missing.append("personas o roles con quienes interactúa")
+
+    missing_text = ", ".join(missing) if missing else "ninguno — ya tienes información completa"
+
+    return (
+        f"Eres un analista experto en levantamiento de procesos empresariales. "
+        f"Estás entrevistando a {collaborator_name} sobre su participación en el proceso "
+        f"\"{process_name}\" del área de {department}.\n\n"
+        "Tu objetivo es extraer información COMPLETA y DETALLADA sobre:\n"
+        "1. Cada actividad/tarea que realiza (paso a paso)\n"
+        "2. Tiempo real que toma cada actividad\n"
+        "3. Herramientas, sistemas o software que usa\n"
+        "4. Personas o equipos con quienes interactúa\n"
+        "5. Problemas, errores o demoras frecuentes\n"
+        "6. Casos especiales o excepciones al proceso normal\n\n"
+        f"INFORMACIÓN AÚN POR PROFUNDIZAR EN ESTA ENTREVISTA: {missing_text}\n\n"
+        "INSTRUCCIONES:\n"
+        "- Sé DINÁMICO: adapta tus preguntas a lo que ya te han contado.\n"
+        "- Sé CRÍTICO: si algo no está claro, pide más detalles o ejemplos concretos.\n"
+        "- Haz UNA pregunta a la vez. No abrumes con varias preguntas seguidas.\n"
+        "- Si mencionan una herramienta, pregunta cómo la usan exactamente.\n"
+        "- Si mencionan un tiempo, valida si es siempre así o varía.\n"
+        "- Si algo suena a desperdicio o ineficiencia, profundiza.\n"
+        "- Cuando tengas información completa de TODOS los puntos arriba, "
+        "muestra un resumen estructurado y pregunta si está correcto antes de cerrar.\n\n"
+        "Responde SIEMPRE en español. Tono amigable pero profesional, sin jerga técnica innecesaria."
+    )
+
+
+# Legacy export — kept for backward compatibility with code that imports the
+# static template directly. New code paths use build_colaborador_prompt().
+COLABORADOR_SYSTEM_PROMPT = (
+    "Eres un asistente experto en levantamiento de procesos. "
+    "Conversa con el colaborador sobre el proceso \"{process_name}\" "
+    "y captura sus actividades, tiempos, herramientas y problemas. "
+    "Responde siempre en español."
+)
 
 
 SYSTEM_PROMPT_TEMPLATE = """\
@@ -168,15 +243,24 @@ async def chat(request: ChatRequest, current_user: User = Depends(get_current_us
     # instead of the consultant follow-up prompt.
     if (current_user.business_role or "").lower() == "colaborador":
         process_name = "este proceso"
+        department   = "—"
         analysis_id = sid.split("_")[0] if "_" in sid else sid
         try:
             with SessionLocal() as db:
                 analysis = repo.get_analysis(db, analysis_id)
-                if analysis and analysis.process_name:
-                    process_name = analysis.process_name
+                if analysis:
+                    if analysis.process_name:
+                        process_name = analysis.process_name
+                    if getattr(analysis, "department", None):
+                        department = analysis.department
         except Exception as exc:
             logger.warning(f"No se pudo cargar process_name (sesión {sid}): {exc}")
-        system_message = COLABORADOR_SYSTEM_PROMPT.format(process_name=process_name)
+        system_message = build_colaborador_prompt(
+            process_name=process_name,
+            department=department,
+            collaborator_name=current_user.full_name or "el colaborador",
+            conversation_history=history,
+        )
     else:
         # Construir system prompt con contexto del análisis (truncado para evitar 413)
         contexto_str = _truncate_context(request.contexto_analisis)

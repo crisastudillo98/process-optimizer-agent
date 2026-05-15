@@ -243,9 +243,78 @@ Alembic migration: `f141c5557abc_sprint5_collaborator_chat`.
 - `.collab-banner` — teal-tinted info bar for colaboradores
 - `.theme-toggle-btn` — small bordered button for theme switching
 
+## Sprint 8 additions — Pipeline Redesign (collection-first + chat-driven HITL)
+
+The pipeline now starts with **collection** rather than a single dumped AS-IS. The consultant creates the shell, collaborators describe their parts, and only then is the AS-IS unified, validated, optimized, and finalized. HITL no longer pauses inside the LangGraph orchestrator for the Sprint 8 flow — instead, each step is an explicit FastAPI endpoint that runs the relevant nodes directly and uses the `phase` column as the source of truth.
+
+### Phase state machine (`analyses.phase`)
+`collecting → unifying → asis_hitl → optimizing → tobe_hitl → completed`
+
+The `Analysis` table now has two new columns:
+- `department: String(255)` — organizational area, captured at creation time.
+- `phase: String(50)` — current state in the machine above.
+
+`ProcessCollaborator.rag_indexed: Boolean` tracks whether the collaborator's uploaded documents have been processed into tenant RAG.
+
+Alembic migration: `3ed4d2fd9aeb_sprint8_pipeline_redesign`. Backfills `phase='completed'` for legacy rows where `status='completed'` so they keep rendering as final reports.
+
+### New endpoints (`api/main.py`)
+All gated to the process owner and to a specific phase (returns 409 otherwise):
+
+- `POST /processes` — body `{process_name, department, description}`. Creates the row in `phase="collecting"`. **No pipeline runs.** Returns `session_id`.
+- `POST /processes/{id}/start-unification` — requires ≥1 completed collaborator. Sets `phase="unifying"` and runs `_run_unification()` in a background task.
+- `POST /processes/{id}/approve-asis` — phase=`asis_hitl` → `optimizing`. Runs `_run_optimization()` (waste analysis → RAG → optimize_tobe) in background.
+- `POST /processes/{id}/approve-tobe` — phase=`tobe_hitl`. Runs `_generate_final_report()` (AS-IS BPMN + TO-BE BPMN + KPIs + Muda/Mura/Muri + tool recs) in background; the task flips phase to `completed` when done.
+- `POST /processes/{id}/request-revision` — body `{phase, feedback}`. Saves feedback as a user chat message and re-runs unification or optimization with the feedback as a correction hint.
+
+### Background tasks
+- `_run_unification(analysis_id, owner_id, feedback="")` — pulls all completed collaborator chats + consultant's initial description, calls the LLM with `SPRINT8_UNIFY_PROMPT`, builds a real `Process` pydantic via `_build_process_from_unified()`, persists to `result_json["asis_process"]` and to `_sessions`, posts `_format_asis_for_chat()` into the consultant's chat, sets `phase="asis_hitl"`.
+- `_run_optimization(analysis_id, feedback="")` — recovers AS-IS from memory or DB, calls `node_analyze_waste` → `node_retrieve_rag` → `node_optimize_tobe` sequentially, posts `_format_tobe_for_chat()` into chat, sets `phase="tobe_hitl"`.
+- `_generate_final_report(analysis_id)` — calls `node_generate_asis_bpmn` → `node_generate_bpmn` → `node_calculate_kpis`, runs `build_enrichment_block()` (Muda/Mura/Muri + tool recs), saves everything via `repo.complete_analysis()` + `repo.update_bpmn_paths()`, sets `phase="completed"`, posts the "🎉 Reporte final generado!" message.
+
+### Collaborator chat — dynamic prompt
+`agent/chat_agent.build_colaborador_prompt(process_name, department, collaborator_name, conversation_history)` replaces the static `COLABORADOR_SYSTEM_PROMPT`. It calls `_analyze_collected_info(history)` which uses Spanish keyword bags (`_TIME_HINTS`, `_TOOL_HINTS`, `_PAIN_HINTS`, `_PEOPLE_HINTS`) to detect which of {activities, durations, tools, pain_points, people} have already been mentioned and injects an "INFORMACIÓN AÚN POR PROFUNDIZAR" line so the LLM probes only the gaps. Used by `/chat` whenever `current_user.business_role == "colaborador"`. The legacy `COLABORADOR_SYSTEM_PROMPT` constant is kept as a tiny fallback for any direct import.
+
+### Collaborator document processing
+`POST /sessions/{session_id}/sources` is now role-aware:
+- **Colaborador** branch — `session_id` is normalized to `analysis_id`, the user must be a `ProcessCollaborator` on it. The file is stored under `storage/outputs/sources/{analysis_id}/colab/{user_id}/`, the LLM extracts a focused 5-section Spanish summary via `COLAB_DOC_EXTRACTION_PROMPT` (activities / durations / tools / people / pain points), and the result is posted as an `assistant` message into `{analysis_id}_{user_id}_collab` so the agent can react to it. `ProcessCollaborator.rag_indexed` is set to True.
+- **Consultor / owner** branch — unchanged (appends to `AgentState.rag_context`).
+
+### HITL is no longer banner-based
+The yellow `.hitl-banner` is hidden globally via CSS (`display: none !important`). Sprint 8 validation lives in a new left-panel `#validation-section` (`docs/workspace.html`):
+- `#asis-validation` with [✓ Aprobar AS-IS] [✗ Solicitar cambios]
+- `#tobe-validation` with [✓ Aprobar TO-BE] [✗ Solicitar cambios]
+
+When the consultant clicks "Solicitar cambios", a `window.__pendingRevision` flag is set; the next chat message is routed through `processes.requestRevision()` instead of `/chat`. The agent regenerates and posts the new AS-IS / TO-BE to chat.
+
+The workspace polls via `pollStatus()`:
+- If `status.phase` is set (Sprint 8 row) → `handlePhaseUpdate(phase)` flips the status label and shows the matching validation block.
+- Else → legacy state-flag fallback for old `/analyze/text` rows.
+
+`maybeRefreshChat()` re-fetches chat history each poll tick so AS-IS / TO-BE summary bubbles posted by background tasks appear without a full page reload.
+
+### Enrichment block (Muda / Mura / Muri + tool recommendations)
+`agent/waste_enrichment.py` — pure functions over existing schemas:
+- `classify_muda_mura_muri(asis, waste)` returns three lists. Mura = activities ≥ 1σ off the duration mean (when ≥3 activities exist). Muri = activities ≥ 2× the process average duration that are owned by a single role.
+- `recommend_tools(tobe, waste)` matches TO-BE activities (status ∈ automatizada / optimizada / combinada) to entries in `TOOL_CATALOG` (7 categories — document_processing, approval_workflow, analytics_dashboards, communication_orchestration, data_capture_forms, rpa_attended, queue_optimization) via waste-type triggers + keyword matching. Each entry has tool names, cost range in USD/mes, ROI months, and the embodied methodology.
+
+The block is stored under `result_json["enrichment"]` and surfaced by `GET /sessions/{id}/report`. The Recommendations tab in the workspace renders it as cards.
+
+### Frontend API (`docs/js/api.js`)
+New `processes` export with `create`, `startUnification`, `approveAsis`, `approveTobe`, `requestRevision`.
+
+### Dashboard cards
+Consultor cards now show phase-specific status pills: 📥 Recolectando / ⚡ Unificando / ⏸ Validar AS-IS / 🧠 Optimizando / ⏸ Validar TO-BE / Completed. Department badge shown under the date. Falls back to legacy `status` when `phase` is null.
+
+### Backward compatibility
+- `POST /analyze/text` still works — runs the full LangGraph pipeline as before, on rows with `phase=NULL`. The endpoint is marked `[Legacy]` in its OpenAPI summary.
+- `POST /analyses/{id}/unify` (Sprint 5) is preserved as a blocking, synchronous alternative to the new `POST /processes/{id}/start-unification`. New clients should use the latter.
+- Legacy HITL endpoints (`/sessions/{id}/review`, `/sessions/{id}/asis-review`) still exist but the yellow banner UI is gone; legacy HITL approvals would need to be issued via the API directly.
+
 ## Known limitations
 
-- Sessions are in-process memory; restarting the server loses **active** (non-completed) sessions. Completed sessions are recovered from SQLite automatically.
-- HITL timeout monitor marks sessions `timed_out` after 24h but does not auto-resume or notify; the session simply stops progressing.
+- Sessions are in-process memory; restarting the server loses **active** (non-Sprint-8) AgentStates. Sprint-8 rows can be reconstructed from `phase` + `result_json` and are recovered on demand, but the legacy `/analyze/text` flow still loses live LangGraph state on restart.
+- Legacy HITL endpoints (`/sessions/{id}/review`, `/sessions/{id}/asis-review`) keep working at the API level but have no banner UI anymore — Sprint 8 deliberately removed the yellow HITL banners.
 - `perplexity` is present in `LLM_PROVIDER` enum but has no implementation — do not use.
 - VAR (Value-Added Ratio) can report 100% when all AS-IS activities are declared value-added.
+- `ProcessCollaborator.rag_indexed=True` currently signals intent — collaborator documents are summarized and posted to chat, but they are not yet pushed into the tenant-scoped vector store.

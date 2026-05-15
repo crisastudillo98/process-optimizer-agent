@@ -236,7 +236,7 @@ async def create_process(
             process_name=req.process_name,
             department=req.department,
             raw_input=req.description or "",
-            status="running",      # status remains "running" until phase=="completed"
+            status="collecting",   # matches phase at creation; flipped by repo.complete_analysis / fail_analysis later
             phase="collecting",
             user_id=current_user.id,
             tenant_id=current_user.tenant_id,
@@ -868,13 +868,13 @@ async def list_analyses(
             )
             collab_counts = {aid: cnt for aid, cnt in rows}
 
-        # Analyses where user is a collaborator (active or completed)
+        # Analyses where user is a collaborator (pending, active, or completed)
         collaborated_query = (
             db.query(db_models.Analysis, ProcessCollaborator)
             .join(ProcessCollaborator, ProcessCollaborator.analysis_id == db_models.Analysis.id)
             .filter(
                 ProcessCollaborator.user_id == current_user.id,
-                ProcessCollaborator.status.in_(["active", "completed"]),
+                ProcessCollaborator.status.in_(["pending", "active", "completed"]),
             )
             .all()
         )

@@ -11,6 +11,9 @@ class Analysis(Base):
 
     id              = Column(String, primary_key=True, index=True)   # session_id del pipeline
     process_name    = Column(String(255), nullable=False, default="Sin nombre")
+    department      = Column(String(255), nullable=True)
+    # Sprint 8 phase state machine (collecting → unifying → asis_hitl → optimizing → tobe_hitl → completed)
+    phase           = Column(String(50), default="collecting")
     status          = Column(String(50), default="running")          # running | completed | error
     raw_input       = Column(Text, nullable=True)
 
@@ -109,6 +112,8 @@ class ProcessCollaborator(Base):
     # Sprint 5 — collaborator chat session and synthesized summary
     session_id          = Column(String, nullable=True)   # {analysis_id}_{user_id}_collab
     contribution_summary = Column(Text, nullable=True)
+    # Sprint 8 — tracks whether collaborator's docs have been indexed into tenant RAG
+    rag_indexed         = Column(Boolean, default=False)
 
     def __repr__(self):
         return f"<ProcessCollaborator analysis={self.analysis_id} user={self.user_id} status={self.status}>"

@@ -98,6 +98,20 @@ export const analyses = {
     apiRequest('POST', `/analyses/${analysisId}/unify`)
 };
 
+// Sprint 8 — Process lifecycle (collecting → unifying → asis_hitl → optimizing → tobe_hitl → completed)
+export const processes = {
+  create: (process_name, department, description = '') =>
+    apiRequest('POST', '/processes', { process_name, department, description }),
+  startUnification: (analysisId) =>
+    apiRequest('POST', `/processes/${analysisId}/start-unification`),
+  approveAsis: (analysisId) =>
+    apiRequest('POST', `/processes/${analysisId}/approve-asis`),
+  approveTobe: (analysisId) =>
+    apiRequest('POST', `/processes/${analysisId}/approve-tobe`),
+  requestRevision: (analysisId, phase, feedback) =>
+    apiRequest('POST', `/processes/${analysisId}/request-revision`, { phase, feedback })
+};
+
 // Sessions (live pipeline sessions)
 export const sessions = {
   analyzeText: (raw_input, process_name) =>

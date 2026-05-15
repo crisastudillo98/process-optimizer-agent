@@ -137,54 +137,42 @@
 <!-- New Process Drawer -->
 <div class="drawer" id="new-process-drawer">
   <div class="drawer-header">
-    <h3 style="font-size:1.1rem;">New Process Analysis</h3>
+    <h3 style="font-size:1.1rem;">New Process</h3>
     <button class="drawer-close" onclick="closeDrawer()">✕</button>
   </div>
 
   <div class="auth-form-group">
-    <label for="drawer-process-name">Process name</label>
-    <input type="text" id="drawer-process-name" placeholder="e.g. Order Fulfillment">
+    <label for="drawer-process-name">Process Name *</label>
+    <input type="text" id="drawer-process-name" placeholder="e.g. Employee Onboarding Process" maxlength="255">
   </div>
 
-  <!-- Input tabs -->
-  <div class="input-tabs" style="margin-bottom:1rem;">
-    <div class="input-tab active" onclick="switchInputTab('text', this)">Text</div>
-    <div class="input-tab" onclick="switchInputTab('file', this)">File</div>
+  <div class="auth-form-group">
+    <label for="drawer-department">Department / Area *</label>
+    <input type="text" id="drawer-department" placeholder="e.g. Human Resources, Finance, Operations" maxlength="255">
   </div>
 
-  <!-- Text tab -->
-  <div id="drawer-tab-text" class="input-tab-panel active">
-    <label class="form-label">Describe the AS-IS process</label>
-    <textarea id="drawer-text-input" placeholder="Describe your current process in detail. Include all steps, actors, timings, and pain points..." style="min-height:200px;"></textarea>
+  <div class="auth-form-group">
+    <label for="drawer-description">Description <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+    <textarea id="drawer-description" rows="4" maxlength="2000"
+      placeholder="Brief overview of the process. Leave empty if collaborators will provide all details."></textarea>
   </div>
 
-  <!-- File tab -->
-  <div id="drawer-tab-file" class="input-tab-panel">
-    <div class="dropzone" id="drawer-dropzone" onclick="document.getElementById('drawer-file-input').click()"
-         ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
-         ondragleave="this.style.borderColor=''"
-         ondrop="handleDrop(event)">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div class="dropzone-text">Drop file here or click to browse</div>
-      <div class="dropzone-hint">PDF, DOCX, XLSX, TXT supported</div>
-      <div class="dropzone-filename" id="drawer-filename"></div>
-    </div>
-    <input type="file" id="drawer-file-input" style="display:none" accept=".pdf,.docx,.xlsx,.txt" onchange="selectFile(this.files[0])">
+  <div style="font-size:0.78rem;color:var(--muted);padding:0.6rem 0.8rem;background:var(--surface-2);border-radius:6px;line-height:1.5;">
+    💡 The process is created in <strong>"Collecting"</strong> state. Invite your team from the workspace
+    to gather the AS-IS, then click <strong>Unify Contributions</strong> when ready.
   </div>
 
   <div class="error-msg" id="drawer-error" style="margin-top:1rem;"></div>
 
-  <button class="btn-auth" id="analyze-btn" onclick="startAnalysis()" style="margin-top:1.5rem;">
-    <span id="analyze-btn-text">Analyze Process →</span>
+  <button class="btn-auth" id="analyze-btn" onclick="startAnalysis()" style="margin-top:1.25rem;">
+    <span id="analyze-btn-text">Create Process →</span>
     <span class="spinner" id="analyze-spinner" style="display:none;border-top-color:#0a0a0f;"></span>
   </button>
 </div>
 
 <script src="js/onboarding.js"></script>
 <script type="module">
-  import { requireAuth, auth, analyses, sessions, notifications } from './js/api.js';
+  import { requireAuth, auth, analyses, sessions, processes, notifications } from './js/api.js';
   import { setUser, setProcesses, state } from './js/state.js';
 
   if (!requireAuth()) throw new Error('Not authenticated');
@@ -293,8 +281,6 @@
   }
 
   let allProcesses = [];
-  let selectedFile = null;
-  let currentTab = 'text';
   let __currentUser = null;
 
   function getGreeting(firstName) {
@@ -407,12 +393,28 @@
           </div>`;
       }).join('');
     } else {
+      const phaseLabel = {
+        collecting: { cls: 'running',   text: '📥 Recolectando' },
+        unifying:   { cls: 'running',   text: '⚡ Unificando…' },
+        asis_hitl:  { cls: 'running',   text: '⏸ Validar AS-IS' },
+        optimizing: { cls: 'running',   text: '🧠 Optimizando…' },
+        tobe_hitl:  { cls: 'running',   text: '⏸ Validar TO-BE' },
+        completed:  { cls: 'completed', text: 'Completed' },
+      };
       grid.innerHTML = items.map(p => {
-        const statusClass = p.status === 'completed' ? 'completed' : p.status === 'error' ? 'error' : 'running';
-        const statusLabel = p.status === 'completed' ? 'Completed' : p.status === 'error' ? 'Error' : 'Running';
+        const ph = phaseLabel[p.phase];
+        let statusClass, statusLabel;
+        if (ph) {
+          statusClass = ph.cls;
+          statusLabel = ph.text;
+        } else {
+          statusClass = p.status === 'completed' ? 'completed' : p.status === 'error' ? 'error' : 'running';
+          statusLabel = p.status === 'completed' ? 'Completed' : p.status === 'error' ? 'Error' : 'Running';
+        }
         const scoreHtml = p.score != null ? `<div class="card-score">${Math.round(p.score)}%</div>` : '';
         const date = p.created_at ? new Date(p.created_at).toLocaleDateString() : '';
         const name = p.process_name || p.id.slice(0, 8);
+        const deptHtml = p.department ? `<div class="card-meta" style="margin-top:2px;">🏢 ${escHtml(p.department)}</div>` : '';
         const collabCount = p.collaborator_count;
         const collabHtml = collabCount > 0 ? `<span style="font-size:0.78rem;color:var(--muted);">👥 ${collabCount} colaborador${collabCount !== 1 ? 'es' : ''}</span>` : '';
         return `
@@ -422,6 +424,7 @@
               <span class="status-pill ${statusClass}">${statusLabel}</span>
             </div>
             <div class="card-meta">${date}</div>
+            ${deptHtml}
             ${scoreHtml}
             <div class="card-footer">
               ${collabHtml || `<span style="font-size:0.78rem;color:var(--muted);">ID: ${p.id.slice(0, 8)}…</span>`}
@@ -470,80 +473,42 @@
     document.getElementById('new-process-drawer').classList.remove('open');
   };
 
-  window.switchInputTab = function(tab, el) {
-    currentTab = tab;
-    document.querySelectorAll('.input-tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-    document.getElementById('drawer-tab-text').classList.toggle('active', tab === 'text');
-    document.getElementById('drawer-tab-file').classList.toggle('active', tab === 'file');
-  };
-
-  window.selectFile = function(file) {
-    if (!file) return;
-    selectedFile = file;
-    const fn = document.getElementById('drawer-filename');
-    fn.textContent = file.name;
-    fn.style.display = 'block';
-  };
-
-  window.handleDrop = function(e) {
-    e.preventDefault();
-    document.getElementById('drawer-dropzone').style.borderColor = '';
-    const file = e.dataTransfer.files[0];
-    if (file) window.selectFile(file);
-  };
-
   window.handleFileUpload = function(file) {
     if (!file) return;
-    window.selectFile(file);
     window.openDrawer();
-    window.switchInputTab('file', document.querySelectorAll('.input-tab')[1]);
   };
 
   window.handleLogout = function() { auth.logout(); };
 
   window.startAnalysis = async function() {
     const name = document.getElementById('drawer-process-name').value.trim();
+    const department = document.getElementById('drawer-department').value.trim();
+    const description = document.getElementById('drawer-description').value.trim();
     const errEl = document.getElementById('drawer-error');
     errEl.classList.remove('visible');
 
-    if (currentTab === 'text') {
-      const text = document.getElementById('drawer-text-input').value.trim();
-      if (text.length < 50) {
-        errEl.textContent = 'Please provide at least 50 characters describing the process.';
-        errEl.classList.add('visible');
-        return;
-      }
-      setAnalyzeLoading(true);
-      try {
-        const result = await sessions.analyzeText(text, name || 'Untitled Process');
-        if (!result) return;
-        localStorage.setItem('active_session', result.session_id);
-        localStorage.setItem('active_process_name', name || 'Untitled Process');
-        window.location.href = 'workspace.html';
-      } catch (e) {
-        errEl.textContent = e.message || 'Analysis failed. Please try again.';
-        errEl.classList.add('visible');
-        setAnalyzeLoading(false);
-      }
-    } else {
-      if (!selectedFile) {
-        errEl.textContent = 'Please select a file to upload.';
-        errEl.classList.add('visible');
-        return;
-      }
-      setAnalyzeLoading(true);
-      try {
-        const result = await sessions.analyzeFile(selectedFile);
-        if (!result) return;
-        localStorage.setItem('active_session', result.session_id);
-        localStorage.setItem('active_process_name', name || 'Untitled Process');
-        window.location.href = 'workspace.html';
-      } catch (e) {
-        errEl.textContent = e.message || 'Upload failed. Please try again.';
-        errEl.classList.add('visible');
-        setAnalyzeLoading(false);
-      }
+    if (name.length < 2) {
+      errEl.textContent = 'Process name is required.';
+      errEl.classList.add('visible');
+      return;
+    }
+    if (department.length < 2) {
+      errEl.textContent = 'Department / Area is required.';
+      errEl.classList.add('visible');
+      return;
+    }
+
+    setAnalyzeLoading(true);
+    try {
+      const result = await processes.create(name, department, description);
+      if (!result) return;
+      localStorage.setItem('active_session', result.session_id);
+      localStorage.setItem('active_process_name', name);
+      window.location.href = 'workspace.html';
+    } catch (e) {
+      errEl.textContent = e.message || 'Could not create process. Please try again.';
+      errEl.classList.add('visible');
+      setAnalyzeLoading(false);
     }
   };
 

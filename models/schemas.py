@@ -185,17 +185,24 @@ class KPIReport(BaseModel):
 # ─────────────────────────────────────────────
 
 class ActivityWasteDetail(BaseModel):
-    """Resultado del análisis de una actividad individual."""
-    activity_id: str
-    activity_name: str
-    waste_classification: WasteClassification
+    """
+    Resultado del análisis de una actividad individual.
+
+    All fields are Optional with safe defaults so the LLM omitting any field
+    does not raise a Pydantic ValidationError that would abort the pipeline.
+    Downstream consumers must guard against None where they read the enum
+    members (e.g. `if d.waste_classification and d.waste_classification.value == ...`).
+    """
+    activity_id: Optional[str]            = Field(default="", description="ID de la actividad")
+    activity_name: Optional[str]          = Field(default="", description="Nombre de la actividad")
+    waste_classification: Optional[WasteClassification] = None
     waste_type: Optional[WasteType]       = None
     waste_justification: Optional[str]    = Field(None, description="Explicación detallada")
-    estimated_waste_time_min: float       = Field(
+    estimated_waste_time_min: Optional[float] = Field(
         default=0.0,
-        description="Minutos de desperdicio estimados en esta actividad"
+        description="Minutos de desperdicio estimados en esta actividad",
     )
-    is_automatable: bool                  = Field(default=False)
+    is_automatable: Optional[bool]        = Field(default=False)
     automation_tool: Optional[str]        = None
     automation_justification: Optional[str] = None
 

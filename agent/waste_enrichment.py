@@ -49,7 +49,7 @@ def classify_muda_mura_muri(
 
     # Muda — drawn from the waste analysis (already classified by the LLM).
     for d in waste.activity_details or []:
-        if d.waste_classification.value == "desperdicio":
+        if d.waste_classification and d.waste_classification.value == "desperdicio":
             muda.append({
                 "activity_id":   d.activity_id,
                 "activity_name": d.activity_name,

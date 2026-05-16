@@ -774,7 +774,7 @@ async def get_asis_review(
             "top_wastes": [
                 {"waste_type": w.waste_type, "activity": w.activity_name}
                 for w in (waste.activity_details or [])[:5]
-                if w.waste_classification == "desperdicio"
+                if w.waste_classification and w.waste_classification.value == "desperdicio"
             ] if waste else [],
         },
     }
@@ -1793,8 +1793,14 @@ def _build_process_from_unified(unified: dict, analysis_id: str, fallback_name: 
     )
 
 
-async def _run_unification(analysis_id: str, owner_user_id: str, feedback: str = "") -> None:
-    """Background task — calls the LLM to consolidate collaborator chats into a unified AS-IS."""
+async def _run_unification(analysis_id: str, feedback: str = "") -> None:
+    """Background task — calls the LLM to consolidate collaborator chats into a unified AS-IS.
+
+    If `feedback` is non-empty, the consultant has rejected the previous AS-IS;
+    the LLM is asked to re-consolidate while incorporating that feedback, and
+    the phase is restored to 'asis_hitl' on success so the consultant can
+    validate again.
+    """
     from llm.factory import get_llm
     from langchain_core.messages import HumanMessage
     import json as _json
@@ -1810,6 +1816,7 @@ async def _run_unification(analysis_id: str, owner_user_id: str, feedback: str =
             process_name = record.process_name or "Proceso sin nombre"
             department = record.department or "—"
             consultant_desc = record.raw_input or ""
+            owner_user_id = record.user_id   # derive from DB instead of passing in
             blocks, _names = _collect_contributions(db, analysis_id)
 
         if not blocks:
@@ -1826,7 +1833,7 @@ async def _run_unification(analysis_id: str, owner_user_id: str, feedback: str =
             if consultant_desc.strip() else ""
         )
         revision_block = (
-            f"NOTA DE REVISIÓN DEL CONSULTOR — la versión anterior debe corregirse así:\n{feedback}\n"
+            f"Additional consultant feedback to incorporate: {feedback}\n"
             if feedback.strip() else ""
         )
         prompt = SPRINT8_UNIFY_PROMPT.format(
@@ -2078,7 +2085,7 @@ async def start_unification(
         rec.phase = "unifying"
         db.commit()
 
-    background_tasks.add_task(_run_unification, analysis_id, current_user.id, "")
+    background_tasks.add_task(_run_unification, analysis_id, "")
     return {"status": "unifying", "message": "Unificación iniciada"}
 
 
@@ -2142,10 +2149,14 @@ async def request_revision_sprint8(
         repo.save_chat_message(db, analysis_id, "system",
             "🔄 Regenerando con tus indicaciones…")
 
+    # asis_hitl → re-run unification (keeps phase=asis_hitl after regeneration)
+    # tobe_hitl → re-run optimization (keeps phase=tobe_hitl after regeneration)
+    # The phase column above is set to the in-flight state (unifying / optimizing);
+    # the background task flips it back when it finishes posting the new artifact.
     if body.phase == "asis_hitl":
-        background_tasks.add_task(_run_unification, analysis_id, current_user.id, body.feedback)
+        background_tasks.add_task(_run_unification, analysis_id, feedback=body.feedback)
     else:
-        background_tasks.add_task(_run_optimization, analysis_id, body.feedback)
+        background_tasks.add_task(_run_optimization, analysis_id, feedback=body.feedback)
 
     return {"status": "regenerating", "phase": body.phase}
 

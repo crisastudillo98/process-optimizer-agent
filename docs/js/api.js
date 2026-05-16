@@ -109,7 +109,9 @@ export const processes = {
   approveTobe: (analysisId) =>
     apiRequest('POST', `/processes/${analysisId}/approve-tobe`),
   requestRevision: (analysisId, phase, feedback) =>
-    apiRequest('POST', `/processes/${analysisId}/request-revision`, { phase, feedback })
+    apiRequest('POST', `/processes/${analysisId}/request-revision`, { phase, feedback }),
+  reset: (analysisId) =>
+    apiRequest('POST', `/processes/${analysisId}/reset`)
 };
 
 // Sessions (live pipeline sessions)

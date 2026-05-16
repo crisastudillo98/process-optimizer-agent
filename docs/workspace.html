@@ -197,6 +197,11 @@
             <button class="btn-validate-reject" onclick="rejectTOBE()">✗ Solicitar cambios</button>
           </div>
         </div>
+
+        <!-- Sprint 8 — escape hatch for stuck/abandoned processes -->
+        <div style="margin-top:0.9rem;padding-top:0.7rem;border-top:1px dashed var(--border);">
+          <button onclick="resetProcess()" class="btn-reset">↺ Restart from collection</button>
+        </div>
       </div>
     </div>
 
@@ -479,27 +484,24 @@
     // Check status once — if already complete skip polling and load immediately
     try {
       const statusData = await sessions.status(sessionId);
+
+      // Sprint 8 — load chat history early for ALL phases so the consultant sees
+      // their prior conversation (AS-IS / TO-BE bubbles, system messages) the
+      // moment the page renders, not only after the first poll tick. This must
+      // run before any phase-specific branch below.
+      if (statusData?.process_name) {
+        document.getElementById('ws-process-name').textContent = statusData.process_name;
+        document.getElementById('left-process-name').textContent = statusData.process_name;
+        document.title = statusData.process_name + ' — Processa AI';
+        localStorage.setItem('active_process_name', statusData.process_name);
+      }
+      window.__lastReport = window.__lastReport || {};   // enable chat input
+      await loadActiveChatHistory();                      // unified history loader
+
       if (statusData && (statusData.kpi_ok || statusData.recovered_from_db)) {
-        if (statusData.process_name) {
-          document.getElementById('ws-process-name').textContent = statusData.process_name;
-          document.getElementById('left-process-name').textContent = statusData.process_name;
-          document.title = statusData.process_name + ' — Processa AI';
-          localStorage.setItem('active_process_name', statusData.process_name);
-        }
         document.getElementById('ws-status-label').textContent = 'Analysis complete';
         await loadCompletedSession();
       } else if (statusData && (statusData.phase === 'asis_hitl' || statusData.phase === 'tobe_hitl')) {
-        // Sprint 8 — consultant reopened the workspace mid-validation. The AS-IS / TO-BE
-        // bubble was posted to the chat by the background task; load it explicitly so the
-        // page doesn't appear empty until the first poll tick.
-        if (statusData.process_name) {
-          document.getElementById('ws-process-name').textContent = statusData.process_name;
-          document.getElementById('left-process-name').textContent = statusData.process_name;
-          document.title = statusData.process_name + ' — Processa AI';
-          localStorage.setItem('active_process_name', statusData.process_name);
-        }
-        window.__lastReport = window.__lastReport || {};   // enable chat input
-        await loadActiveChatHistory();                      // render chat from DB
         handlePhaseUpdate(statusData.phase);                // show validation block + status label
         await pollStatus();                                 // keep polling for further updates
       } else {
@@ -544,10 +546,7 @@
   async function loadCompletedSession() {
     document.getElementById('ws-status-label').textContent = 'Loading analysis...';
     try {
-      const [report, chatHistory] = await Promise.all([
-        sessions.report(sessionId),
-        chat.history(sessionId).catch(() => ({ mensajes: [] })),
-      ]);
+      const report = await sessions.report(sessionId);
 
       if (!report) {
         document.getElementById('ws-status-label').textContent = 'Could not load analysis.';
@@ -568,26 +567,8 @@
 
       populateRightPanel(report);
 
-      // Populate chat history if any
-      if (chatHistory?.mensajes?.length) {
-        const msgs = document.getElementById('chat-messages');
-        document.getElementById('chat-empty').style.display = 'none';
-        document.getElementById('suggestion-chips').style.display = 'none';
-        const fragment = document.createDocumentFragment();
-        const divider = document.createElement('div');
-        divider.style.cssText = 'text-align:center;font-size:0.72rem;color:var(--muted);padding:0.5rem 0;margin:0.5rem 0;border-bottom:1px solid var(--border);';
-        divider.textContent = '— Previous conversation —';
-        fragment.appendChild(divider);
-        for (const msg of chatHistory.mensajes) {
-          const role = msg.role === 'user' ? 'user' : 'agent';
-          const div = document.createElement('div');
-          div.className = 'chat-bubble ' + role;
-          div.innerHTML = role === 'agent' ? renderMarkdown(msg.content) : escHtml(msg.content);
-          fragment.appendChild(div);
-        }
-        msgs.insertBefore(fragment, msgs.firstChild);
-        msgs.scrollTop = msgs.scrollHeight;
-      }
+      // Chat history rendering is now centralized in loadActiveChatHistory (called from
+      // init for all phases) + maybeRefreshChat on poll ticks. No duplicate render here.
 
       // Load BPMN (non-blocking — page is already usable)
       loadBpmn();
@@ -1084,6 +1065,29 @@
     input.focus();
     input.placeholder = 'Describe los cambios que necesitas en el TO-BE…';
     document.getElementById('chat-send-btn').disabled = !input.value.trim();
+  };
+
+  // Sprint 8 — escape hatch: roll a stuck/abandoned process back to collecting.
+  // Collaborator chats are preserved; only the AS-IS/TO-BE artifacts are cleared.
+  window.resetProcess = async function() {
+    const ok = window.confirm(
+      'Reiniciar el proceso a la fase de recolección.\n\n' +
+      'Esto borrará el AS-IS y el TO-BE actuales. Las contribuciones de los ' +
+      'colaboradores se mantienen.\n\n¿Continuar?'
+    );
+    if (!ok) return;
+    try {
+      await processes.reset(sessionId);
+      window.__pendingRevision = null;
+      _setValidation(null);
+      document.getElementById('ws-status-label').textContent = 'Proceso reiniciado — recolectando';
+      if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+      _lastChatCount = 0;
+      await loadActiveChatHistory();
+      pollStatus();
+    } catch (e) {
+      alert('Error reiniciando el proceso: ' + e.message);
+    }
   };
 
   // ── Legacy HITL (kept for /analyze/text backward compat) ──────────

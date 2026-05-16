@@ -2069,8 +2069,15 @@ async def start_unification(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
 ):
-    """Consolidate collaborator chats into a unified AS-IS. Posts result to consultant chat."""
-    rec = _assert_owner_and_phase(analysis_id, current_user, ("collecting", "asis_hitl"))
+    """Consolidate collaborator chats into a unified AS-IS. Posts result to consultant chat.
+
+    Allowed from any non-final phase so the consultant can restart consolidation
+    even after the process has advanced (e.g., a TO-BE was generated but the
+    consultant wants to redo the AS-IS from scratch).
+    """
+    rec = _assert_owner_and_phase(
+        analysis_id, current_user, ("collecting", "asis_hitl", "tobe_hitl"),
+    )
 
     with SessionLocal() as db:
         completed = db.query(ProcessCollaborator).filter(
@@ -2159,6 +2166,77 @@ async def request_revision_sprint8(
         background_tasks.add_task(_run_optimization, analysis_id, feedback=body.feedback)
 
     return {"status": "regenerating", "phase": body.phase}
+
+
+@app.post("/processes/{analysis_id}/reset", tags=["Processes"])
+async def reset_process(
+    analysis_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Reset a stuck process back to 'collecting' so the consultant can restart.
+
+    Owner-only. Clears the AS-IS and TO-BE artifacts from both the in-memory
+    AgentState and the persisted result_json, but keeps collaborator
+    contributions intact so the team's existing input is not lost.
+    """
+    with SessionLocal() as db:
+        rec = db.query(db_models.Analysis).filter(
+            db_models.Analysis.id == analysis_id,
+            db_models.Analysis.tenant_id == current_user.tenant_id,
+        ).first()
+        if not rec:
+            raise HTTPException(status_code=404, detail="Process not found.")
+        if rec.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the process owner can reset.")
+
+        rec.phase  = "collecting"
+        rec.status = "collecting"
+        rec.has_errors = False
+        rec.score = None
+        rec.cycle_time_reduction_pct = None
+        rec.automation_coverage_pct  = None
+        rec.bpmn_tobe_path = None
+        rec.bpmn_asis_path = None
+        if rec.result_json:
+            try:
+                existing = json.loads(rec.result_json)
+                existing.pop("asis_process", None)
+                existing.pop("tobe_process", None)
+                existing.pop("waste_analysis", None)
+                existing.pop("kpi_report", None)
+                existing.pop("enrichment", None)
+                rec.result_json = json.dumps(existing, default=str) if existing else None
+            except (json.JSONDecodeError, AttributeError):
+                rec.result_json = None
+        db.commit()
+        repo.save_chat_message(db, analysis_id, "system",
+            "↺ Proceso reiniciado a fase de recolección. Las contribuciones de los colaboradores se mantienen.")
+
+    # Clear the in-memory AgentState so future requests rebuild from scratch
+    state = _sessions.get(analysis_id)
+    if state is not None:
+        state.asis_process    = None
+        state.tobe_process    = None
+        state.waste_analysis  = None
+        state.kpi_report      = None
+        state.bpmn_output     = None
+        state.bpmn_asis_output = None
+        state.extraction_ok = False
+        state.analysis_ok   = False
+        state.optimization_ok = False
+        state.bpmn_ok = False
+        state.kpi_ok  = False
+        state.hitl_asis_required = False
+        state.hitl_asis_approved = False
+        state.hitl_required = False
+        state.hitl_approved = False
+        state.current_node  = "collecting"
+        state.errors = []
+        _sessions[analysis_id] = state
+
+    logger.info(f"Process reset: {analysis_id} by user={current_user.id}")
+    return {"status": "reset", "phase": "collecting"}
 
 
 # ─────────────────────────────────────────────

@@ -1442,6 +1442,20 @@ tbody tr:hover { background: var(--surface-2); }
   transition: border-color 0.15s, color 0.15s;
 }
 .btn-validate-reject:hover { border-color: #ef4444; color: #ef4444; }
+
+/* Sprint 8 — escape hatch to roll a stuck process back to collecting */
+.btn-reset {
+  width: 100%;
+  padding: 0.45rem;
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--border-med);
+  border-radius: 6px;
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-reset:hover { border-color: var(--primary); color: var(--primary); }
 .btn-approve {
   padding: 0.35rem 0.9rem;
   background: #10b981;

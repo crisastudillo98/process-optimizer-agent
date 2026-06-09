@@ -52,6 +52,41 @@ class ChatResponse(BaseModel):
 
 _chat_histories: dict[str, list[dict]] = {}
 
+# Sprint 8 FIX 3 — Colaborador document extractions, keyed by collab session id
+# ({analysis_id}_{user_id}_collab). Populated from api/main.py when the
+# colaborador uploads a file; consumed by the chat endpoint to inject context
+# so the agent can answer "what did you understand from the uploaded file?".
+# Structure: {collab_sid: [{"filename": str, "summary": str, "extracted_text": str}, ...]}
+_collab_doc_context: dict[str, list[dict]] = {}
+
+
+def store_collab_doc_summary(
+    collab_sid: str,
+    filename: str,
+    summary: str,
+    extracted_text: str = "",
+) -> None:
+    """Persist a colaborador's document summary so future chat turns can reference it."""
+    _collab_doc_context.setdefault(collab_sid, []).append({
+        "filename":       filename,
+        "summary":        summary,
+        "extracted_text": extracted_text,
+    })
+
+
+def get_collab_document_context(collab_sid: str) -> str:
+    """Return a Spanish, prompt-ready block describing every document the colaborador uploaded."""
+    docs = _collab_doc_context.get(collab_sid, [])
+    if not docs:
+        return ""
+    parts: list[str] = []
+    for d in docs:
+        # Summary is short and authoritative — prefer it.
+        # Fall back to a trimmed extract when the LLM summarization failed at upload time.
+        body = d.get("summary") or d.get("extracted_text", "")[:1500]
+        parts.append(f"📄 Documento: {d.get('filename', 'archivo')}\n{body}")
+    return "\n\n".join(parts)
+
 _TIME_HINTS    = (
     "minuto", "minutos", "min ", "min.", "hora", "horas", "día", "dias", "días",
     "segundos", "tarda", "demora", "lleva", " hr", "h ", "h.", "semana",
@@ -233,9 +268,17 @@ async def chat(request: ChatRequest, current_user: User = Depends(get_current_us
     """
     sid = request.session_id
 
-    # Inicializar historial si no existe
+    # Sprint 8 FIX 3 — rehydrate from DB on the first chat() call per process boot
+    # so previously persisted messages (including a colaborador's uploaded-doc
+    # summary) survive server restarts and are visible to the LLM in this turn.
     if sid not in _chat_histories:
-        _chat_histories[sid] = []
+        try:
+            with SessionLocal() as db:
+                db_history = repo.get_chat_messages(db, sid)
+            _chat_histories[sid] = list(db_history) if db_history else []
+        except Exception as exc:
+            logger.warning(f"No se pudo precargar chat desde DB (sesión {sid}): {exc}")
+            _chat_histories[sid] = []
 
     history = _chat_histories[sid]
 
@@ -261,6 +304,20 @@ async def chat(request: ChatRequest, current_user: User = Depends(get_current_us
             collaborator_name=current_user.full_name or "el colaborador",
             conversation_history=history,
         )
+        # Sprint 8 FIX 3 — inject extracted PDF/Excel/etc. context so the agent
+        # can answer questions about uploaded documents instead of saying it
+        # can't read files.
+        doc_context = get_collab_document_context(sid)
+        if doc_context:
+            system_message += (
+                "\n\n────────────────────────────────\n"
+                "DOCUMENTOS SUBIDOS POR EL COLABORADOR:\n"
+                f"{doc_context}\n"
+                "────────────────────────────────\n"
+                "Usa esta información para responder preguntas sobre los documentos "
+                "subidos. Si el colaborador pregunta qué entendiste del archivo, "
+                "describe el contenido directamente sin decir que no puedes leer archivos."
+            )
     else:
         # Construir system prompt con contexto del análisis (truncado para evitar 413)
         contexto_str = _truncate_context(request.contexto_analisis)

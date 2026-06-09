@@ -1053,6 +1053,17 @@ async def upload_source(
                 "¿Podrías contarme qué actividades de tu proceso aparecen ahí?"
             )
 
+        # Sprint 8 FIX 3 — keep the extracted text + LLM summary in a retrievable
+        # store so the chat endpoint can inject them into the colaborador's
+        # system prompt on subsequent turns ("¿qué entendiste del archivo?").
+        from agent.chat_agent import store_collab_doc_summary
+        store_collab_doc_summary(
+            collab_sid,
+            filename=filename,
+            summary=summary,
+            extracted_text=extracted_text,
+        )
+
         # Post assistant message into the collab chat
         chat_msg = (
             f"He procesado tu documento **{filename}**.\n\n"

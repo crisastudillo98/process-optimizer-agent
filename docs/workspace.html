@@ -667,16 +667,23 @@
       case 'optimizing':
         label.textContent = 'Optimizando con Lean / Six Sigma / Kaizen…';
         _setValidation(null);
+        // Sprint 8 FIX 2 — AS-IS BPMN is generated at AS-IS approval, so try loading it now.
+        _loadAsisBpmnXml();
         break;
       case 'tobe_hitl':
         label.textContent = 'Esperando validación del TO-BE';
         _setValidation('tobe');
         window.__lastReport = window.__lastReport || {};
         document.getElementById('chat-send-btn').disabled = !document.getElementById('chat-input').value.trim();
+        // AS-IS BPMN should be available by now; keep retrying until it lands.
+        _loadAsisBpmnXml();
         break;
       case 'completed':
         label.textContent = 'Análisis completo';
         _setValidation(null);
+        // Both BPMNs are ready after final report generation.
+        _loadAsisBpmnXml();
+        _loadTobeBpmnXml();
         break;
       default:
         _setValidation(null);
@@ -751,38 +758,78 @@
   }
 
   // ── BPMN ─────────────────────────────────────────────
-  async function loadBpmn() {
-    document.getElementById('bpmn-loading').textContent = 'Loading diagram…';
+  // Sprint 8 FIX 2 — AS-IS BPMN is generated when the consultant approves AS-IS;
+  // TO-BE BPMN at TO-BE approval. The two diagrams load independently as soon as
+  // each becomes available, instead of waiting for the final report.
+  let _bpmnLoadingAsis = false, _bpmnLoadingTobe = false;
+  let _currentBpmnView = 'asis';   // matches the AS-IS subtab being active by default
+
+  function _ensureBpmnViewer() {
+    if (bpmnViewer) return bpmnViewer;
+    const container = document.getElementById('bpmn-viewer-container');
+    container.style.display = 'block';
+    document.getElementById('bpmn-loading').style.display = 'none';
+    document.getElementById('bpmn-zoom-controls').style.display = 'flex';
+    bpmnViewer = new BpmnJS({ container });
+    return bpmnViewer;
+  }
+
+  function _setBpmnStatus(msg) {
+    const el = document.getElementById('bpmn-loading');
+    if (!el) return;
+    el.style.display = 'block';
+    el.textContent = msg;
+  }
+
+  async function _renderXmlIfActive(view, xml) {
+    if (_currentBpmnView !== view) return;   // user is looking at the other tab; cache only
+    _ensureBpmnViewer();
+    try {
+      await bpmnViewer.importXML(xml);
+      bpmnViewer.get('canvas').zoom('fit-viewport');
+    } catch (e) {
+      console.warn(`BPMN render (${view}) failed:`, e);
+    }
+  }
+
+  async function _loadAsisBpmnXml() {
+    if (bpmnAsisXml || _bpmnLoadingAsis) return;
+    _bpmnLoadingAsis = true;
+    try {
+      const blob = await apiBlob(`/sessions/${sessionId}/bpmn/asis`);
+      bpmnAsisXml = await blob.text();
+      await _renderXmlIfActive('asis', bpmnAsisXml);
+    } catch (e) {
+      // Not ready yet — silent. Poll will retry.
+    } finally {
+      _bpmnLoadingAsis = false;
+    }
+  }
+
+  async function _loadTobeBpmnXml() {
+    if (bpmnXml || _bpmnLoadingTobe) return;
+    _bpmnLoadingTobe = true;
     try {
       const blob = await apiBlob(`/sessions/${sessionId}/bpmn`);
       bpmnXml = await blob.text();
-
-      const container = document.getElementById('bpmn-viewer-container');
-      container.style.display = 'block';
-      document.getElementById('bpmn-loading').style.display = 'none';
-      document.getElementById('bpmn-zoom-controls').style.display = 'flex';
-
-      bpmnViewer = new BpmnJS({ container });
-      await bpmnViewer.importXML(bpmnXml);
-      bpmnViewer.get('canvas').zoom('fit-viewport');
-
-      // Count flow nodes for badge
       const matches = bpmnXml.match(/<(bpmn:|)(task|userTask|serviceTask|exclusiveGateway|parallelGateway|startEvent|endEvent)/g);
       const count = matches ? matches.length : 0;
       document.getElementById('bpmn-step-badge').textContent = count + ' elements (TO-BE)';
-
-      // Load AS-IS BPMN in background
-      try {
-        const asisBlob = await apiBlob(`/sessions/${sessionId}/bpmn/asis`);
-        bpmnAsisXml = await asisBlob.text();
-      } catch(_) { /* AS-IS BPMN optional */ }
+      await _renderXmlIfActive('tobe', bpmnXml);
     } catch (e) {
-      const loadingEl = document.getElementById('bpmn-loading');
-      if (e.message && e.message.includes('404')) {
-        loadingEl.innerHTML = 'Diagram not available for this session. <button onclick="loadBpmn()" style="background:none;border:none;cursor:pointer;color:var(--primary);font-size:1.1rem;vertical-align:middle;" title="Retry">↺</button>';
-      } else {
-        loadingEl.textContent = 'BPMN not yet available.';
-      }
+      // Not ready yet — silent.
+    } finally {
+      _bpmnLoadingTobe = false;
+    }
+  }
+
+  // Legacy entry point — used by loadCompletedSession() for /analyze/text rows and on completion.
+  // Behavior is the union of the two loaders above.
+  async function loadBpmn() {
+    _setBpmnStatus('Loading diagram…');
+    await Promise.all([_loadAsisBpmnXml(), _loadTobeBpmnXml()]);
+    if (!bpmnAsisXml && !bpmnXml) {
+      _setBpmnStatus('BPMN not yet available.');
     }
   }
 
@@ -797,12 +844,26 @@
   window.switchBpmnView = async function(view, el) {
     document.querySelectorAll('.bpmn-subtab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
+    _currentBpmnView = view;
     const xml = view === 'asis' ? bpmnAsisXml : bpmnXml;
-    if (!bpmnViewer || !xml) return;
-    try {
-      await bpmnViewer.importXML(xml);
-      bpmnViewer.get('canvas').zoom('fit-viewport');
-    } catch(_) {}
+    if (xml) {
+      _ensureBpmnViewer();
+      try {
+        await bpmnViewer.importXML(xml);
+        bpmnViewer.get('canvas').zoom('fit-viewport');
+      } catch (e) {
+        console.warn('BPMN switch render failed:', e);
+      }
+    } else {
+      // Placeholder until the matching approval generates the diagram.
+      const msg = view === 'asis'
+        ? 'AS-IS diagram will appear after AS-IS approval.'
+        : 'TO-BE diagram will appear after TO-BE approval.';
+      _setBpmnStatus(msg);
+      const container = document.getElementById('bpmn-viewer-container');
+      if (container) container.style.display = 'none';
+      document.getElementById('bpmn-zoom-controls').style.display = 'none';
+    }
   };
 
   window.downloadBpmn = async function() {

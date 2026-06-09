@@ -2102,17 +2102,38 @@ async def approve_asis_sprint8(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
 ):
-    """Approve the unified AS-IS and kick off the optimization pipeline."""
+    """Approve the unified AS-IS, generate the AS-IS BPMN, and kick off the optimization pipeline."""
     _assert_owner_and_phase(analysis_id, current_user, ("asis_hitl",))
+
+    # Sprint 8 FIX 2 — generate the AS-IS BPMN at AS-IS approval (not at final report).
+    # Non-blocking on failure: the optimization still runs even if BPMN generation
+    # fails, and the user can retry by re-approving or by hitting /sessions/{id}/bpmn/asis later.
+    from agent.bpmn_generator import node_generate_asis_bpmn
+    state = _sessions.get(analysis_id)
+    asis_bpmn_path: Optional[str] = None
+    if state is not None and state.asis_process is not None:
+        try:
+            upd = node_generate_asis_bpmn(state)
+            asis_bpmn_path = upd.get("bpmn_asis_output")
+            if asis_bpmn_path:
+                state.bpmn_asis_output = asis_bpmn_path
+                _sessions[analysis_id] = state
+        except Exception as exc:
+            logger.warning(f"AS-IS BPMN generation failed (non-blocking) for {analysis_id}: {exc}")
+    else:
+        logger.warning(f"AS-IS BPMN skipped — no in-memory AS-IS for {analysis_id}")
+
     with SessionLocal() as db:
         rec = db.query(db_models.Analysis).filter(db_models.Analysis.id == analysis_id).first()
         rec.phase = "optimizing"
+        if asis_bpmn_path:
+            rec.bpmn_asis_path = asis_bpmn_path
         db.commit()
         repo.save_chat_message(db, analysis_id, "system",
             "✅ AS-IS aprobado. Iniciando análisis Lean / Six Sigma / Kaizen…")
 
     background_tasks.add_task(_run_optimization, analysis_id, "")
-    return {"status": "optimizing", "message": "Optimización iniciada"}
+    return {"status": "optimizing", "message": "Optimización iniciada", "bpmn_asis_ready": bool(asis_bpmn_path)}
 
 
 @app.post("/processes/{analysis_id}/approve-tobe", tags=["Processes"])

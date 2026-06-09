@@ -49,6 +49,13 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:0.75rem;">
+      <!-- Sprint 8 FIX 4 — Left + Right panel toggles -->
+      <button class="panel-toggle" id="left-panel-toggle"
+              onclick="toggleLeftPanel()" title="Toggle left panel"
+              aria-label="Toggle left panel">⊞</button>
+      <button class="panel-toggle" id="right-panel-toggle"
+              onclick="toggleRightPanel()" title="Toggle right panel"
+              aria-label="Toggle right panel">⊟</button>
       <button onclick="downloadBpmn()" class="btn-secondary" id="download-bpmn-btn" style="display:none;font-size:0.8rem;padding:0.35rem 0.8rem;">
         ↓ Download BPMN
       </button>
@@ -103,7 +110,9 @@
   </div>
 
   <!-- 3-panel workspace -->
-  <div class="workspace-layout">
+  <div class="workspace-layout" id="workspace-layout">
+    <!-- Sprint 8 FIX 4 — drag handle to resize the right panel. Positioned via JS. -->
+    <div class="ws-resize-handle" id="ws-resize-handle"></div>
 
     <!-- LEFT PANEL -->
     <div class="panel-left">
@@ -321,6 +330,101 @@
     updateThemeBtn();
   };
   updateThemeBtn();
+
+  // ── Sprint 8 FIX 4 — Collapsible left/right panels + resizable right ──
+  const LS_LEFT_COLLAPSED  = 'ws_left_collapsed';
+  const LS_RIGHT_COLLAPSED = 'ws_right_collapsed';
+  const LS_RIGHT_WIDTH     = 'ws_right_width';
+
+  function _positionResizeHandle() {
+    const layout = document.getElementById('workspace-layout');
+    const right  = document.querySelector('.panel-right');
+    const handle = document.getElementById('ws-resize-handle');
+    if (!layout || !right || !handle) return;
+    if (right.classList.contains('collapsed')) {
+      handle.style.display = 'none';
+      return;
+    }
+    handle.style.display = 'block';
+    // Place the handle on the left edge of the right panel.
+    const rect       = right.getBoundingClientRect();
+    const layoutRect = layout.getBoundingClientRect();
+    handle.style.left = (rect.left - layoutRect.left - 3) + 'px';
+  }
+
+  window.toggleLeftPanel = function() {
+    const layout = document.getElementById('workspace-layout');
+    const left   = document.querySelector('.panel-left');
+    layout.classList.toggle('left-collapsed');
+    left.classList.toggle('collapsed');
+    localStorage.setItem(LS_LEFT_COLLAPSED, left.classList.contains('collapsed') ? '1' : '0');
+    requestAnimationFrame(_positionResizeHandle);
+  };
+
+  window.toggleRightPanel = function() {
+    const layout = document.getElementById('workspace-layout');
+    const right  = document.querySelector('.panel-right');
+    layout.classList.toggle('right-collapsed');
+    right.classList.toggle('collapsed');
+    localStorage.setItem(LS_RIGHT_COLLAPSED, right.classList.contains('collapsed') ? '1' : '0');
+    requestAnimationFrame(_positionResizeHandle);
+  };
+
+  // Restore persisted state ASAP so the layout doesn't flash at full size.
+  (function _restorePanelState() {
+    const layout = document.getElementById('workspace-layout');
+    const left   = document.querySelector('.panel-left');
+    const right  = document.querySelector('.panel-right');
+    if (!layout || !left || !right) return;
+    if (localStorage.getItem(LS_LEFT_COLLAPSED) === '1') {
+      layout.classList.add('left-collapsed');
+      left.classList.add('collapsed');
+    }
+    if (localStorage.getItem(LS_RIGHT_COLLAPSED) === '1') {
+      layout.classList.add('right-collapsed');
+      right.classList.add('collapsed');
+    }
+    const savedWidth = parseInt(localStorage.getItem(LS_RIGHT_WIDTH) || '0', 10);
+    if (savedWidth >= 200 && savedWidth <= 800) {
+      layout.style.setProperty('--ws-right-w', savedWidth + 'px');
+    }
+  })();
+
+  // Drag-to-resize the right panel.
+  (function _initResizeDrag() {
+    const handle = document.getElementById('ws-resize-handle');
+    const layout = document.getElementById('workspace-layout');
+    if (!handle || !layout) return;
+
+    let dragging = false;
+    handle.addEventListener('mousedown', (e) => {
+      if (layout.classList.contains('right-collapsed')) return;
+      dragging = true;
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const newW = Math.max(200, Math.min(800, window.innerWidth - e.clientX));
+      layout.style.setProperty('--ws-right-w', newW + 'px');
+      _positionResizeHandle();
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      const current = parseInt(getComputedStyle(layout).getPropertyValue('--ws-right-w'), 10);
+      if (current) localStorage.setItem(LS_RIGHT_WIDTH, String(current));
+    });
+
+    // Reposition on layout changes
+    window.addEventListener('resize', _positionResizeHandle);
+    requestAnimationFrame(_positionResizeHandle);
+  })();
 
   let bpmnViewer = null;
   let bpmnXml = null;

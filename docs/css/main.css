@@ -1354,10 +1354,16 @@ tbody tr:hover { background: var(--surface-2); }
 ============================================= */
 .workspace-layout {
   display: grid;
-  grid-template-columns: 220px 1fr 320px;
+  /* Sprint 8 FIX 4 — column widths are CSS vars so JS can resize / collapse
+     each panel without restructuring the grid. */
+  grid-template-columns: var(--ws-left-w, 220px) 1fr var(--ws-right-w, 320px);
   height: calc(100vh - 60px);
   overflow: hidden;
+  position: relative;
+  transition: grid-template-columns var(--transition);
 }
+.workspace-layout.left-collapsed  { --ws-left-w: 0px; }
+.workspace-layout.right-collapsed { --ws-right-w: 0px; }
 .panel-left {
   border-right: 1px solid var(--border);
   overflow-y: auto;
@@ -1374,6 +1380,61 @@ tbody tr:hover { background: var(--surface-2); }
   overflow-y: auto;
   background: var(--surface);
 }
+.panel-left.collapsed,
+.panel-right.collapsed {
+  display: none;
+}
+
+/* Sprint 8 FIX 4 — collapsible / resizable panels */
+.sidebar-toggle, .panel-toggle {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: border-color var(--transition), color var(--transition);
+}
+.sidebar-toggle:hover, .panel-toggle:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.sidebar-toggle {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 110;
+}
+#sidebar { transition: width var(--transition), min-width var(--transition), transform var(--transition); }
+#sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border-right: none;
+}
+#main { transition: margin-left var(--transition); }
+#main.sidebar-collapsed { margin-left: 0; padding-left: 56px; }   /* leave room for the floating toggle */
+
+.ws-resize-handle {
+  /* Sits on the boundary between center and right panels. Pointer-events allow drag. */
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 40;
+  transition: background var(--transition);
+}
+.ws-resize-handle:hover,
+.ws-resize-handle.dragging {
+  background: var(--primary);
+  opacity: 0.6;
+}
+.workspace-layout.right-collapsed .ws-resize-handle { display: none; }
 .panel-section-title {
   font-size: 0.7rem;
   font-weight: 700;

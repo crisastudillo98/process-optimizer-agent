@@ -15,6 +15,11 @@
 </head>
 <body>
 
+<!-- Sprint 8 FIX 4 — Sidebar collapse toggle (floating, top-left) -->
+<button class="sidebar-toggle" id="sidebar-toggle-btn"
+        onclick="toggleSidebar()" title="Toggle sidebar"
+        aria-label="Toggle sidebar">☰</button>
+
 <!-- Sidebar -->
 <aside id="sidebar" role="navigation">
   <div class="sidebar-logo">
@@ -190,6 +195,20 @@
     updateThemeBtn();
   };
   updateThemeBtn();
+
+  // ── Sprint 8 FIX 4 — Sidebar collapse ──────────────────────────────────
+  window.toggleSidebar = function() {
+    const sidebar = document.getElementById('sidebar');
+    const main    = document.getElementById('main');
+    sidebar.classList.toggle('collapsed');
+    main.classList.toggle('sidebar-collapsed');
+    localStorage.setItem('sidebar_collapsed', sidebar.classList.contains('collapsed') ? '1' : '0');
+  };
+  // Restore last saved state on page load
+  if (localStorage.getItem('sidebar_collapsed') === '1') {
+    document.getElementById('sidebar')?.classList.add('collapsed');
+    document.getElementById('main')?.classList.add('sidebar-collapsed');
+  }
 
   // ── Notification Bell ──────────────────────────────────────────────────────
   let notifPollInterval = null;

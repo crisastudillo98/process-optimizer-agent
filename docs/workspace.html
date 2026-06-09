@@ -1225,8 +1225,16 @@
       loader.remove();
       if (res) {
         appendBubble(res.respuesta, 'agent');
-        if (window.__lastReport && hasActionKeywords(msg)) {
-          showApplyPrompt(msg);
+        // The "Apply to BPMN" prompt only makes sense for the consultant once a
+        // TO-BE exists. Colaboradores never see it; consultants only see it while
+        // a TO-BE is in flight or already final (tobe_hitl / completed).
+        if (__currentUser?.business_role !== 'colaborador') {
+          const phaseOk = window.__currentPhase === 'tobe_hitl'
+            || window.__currentPhase === 'completed'
+            || !window.__currentPhase;   // legacy /analyze/text rows (no phase)
+          if (phaseOk && window.__lastReport?.tobe_process && hasActionKeywords(msg)) {
+            showApplyPrompt(msg);
+          }
         }
       }
     } catch (e) {
